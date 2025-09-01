@@ -158,15 +158,48 @@ async function callGeminiWithApiKey(
 }
 
 // --- 이미지 다운로드(Base64) ---
+function normalizeMimeType(originalMime, url) {
+  const mime = (originalMime || '').toLowerCase().trim();
+  if (mime === 'image/jpg' || mime === 'image/pjpg') return 'image/jpeg';
+  if (mime === 'image/x-png') return 'image/png';
+  if (mime === '' || mime === 'application/octet-stream') {
+    try {
+      const lower = String(url || '').toLowerCase();
+      if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+      if (lower.endsWith('.png')) return 'image/png';
+      if (lower.endsWith('.webp')) return 'image/webp';
+    } catch (_) {}
+    return 'image/jpeg';
+  }
+  return mime;
+}
+
 async function fetchImageAsBase64(imageUrl) {
-  const resp = await fetch(imageUrl);
+  console.log(`[Image Fetch] GET ${imageUrl}`);
+  const resp = await fetch(imageUrl, {
+    method: 'GET',
+    headers: {
+      Accept: 'image/*,*/*;q=0.8',
+      'User-Agent': 'asthma-bot/1.0 (+server)',
+    },
+  });
   if (!resp.ok) {
     const errTxt = await resp.text().catch(() => '');
     throw new Error(`Failed to fetch image: ${resp.status} ${errTxt}`);
   }
-  const contentType = (resp.headers.get('content-type') || 'image/jpeg').split(';')[0];
+  const rawContentType = (resp.headers.get('content-type') || 'image/jpeg').split(';')[0];
+  const contentType = normalizeMimeType(rawContentType, imageUrl);
+  const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
+  if (contentLength > 15 * 1024 * 1024) {
+    throw new Error(`Image too large: ${contentLength} bytes (>15MB)`);
+  }
   const arrayBuf = await resp.arrayBuffer();
   const base64 = Buffer.from(arrayBuf).toString('base64');
+  console.log(
+    `[Image Fetch] content-type=${contentType} (raw=${rawContentType}), bytes=${
+      (base64.length * 0.75) | 0
+    }`
+  );
   return { base64, mimeType: contentType };
 }
 
@@ -177,6 +210,13 @@ async function analyzeAllergyFromImage(imageUrl) {
     throw new Error('GEMINI_API_KEY environment variable is not set.');
   }
   const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
+
+  const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  if (!allowed.has(mimeType)) {
+    throw new Error(
+      `Unsupported image mime after normalization: ${mimeType}. Please upload JPG/PNG/WEBP.`
+    );
+  }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -197,6 +237,7 @@ async function analyzeAllergyFromImage(imageUrl) {
     },
   };
 
+  console.log('[Gemini Vision] Requesting analysis...');
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -205,7 +246,8 @@ async function analyzeAllergyFromImage(imageUrl) {
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`Gemini Image API Error (${response.status}): ${errorBody}`);
+    console.error('[Gemini Vision] Error body:', errorBody?.slice(0, 500));
+    throw new Error(`Gemini Image API Error (${response.status})`);
   }
 
   const data = await response.json();
@@ -214,6 +256,7 @@ async function analyzeAllergyFromImage(imageUrl) {
   try {
     parsed = JSON.parse(text);
   } catch (e) {
+    console.warn('[Gemini Vision] Non-JSON response snippet:', String(text).slice(0, 200));
     parsed = {};
   }
 
@@ -223,6 +266,10 @@ async function analyzeAllergyFromImage(imageUrl) {
   const foodAllergens = Array.isArray(parsed.food_allergens) ? parsed.food_allergens : [];
   const notes = typeof parsed.notes === 'string' ? parsed.notes : '';
 
+  console.log('[Gemini Vision] Parsed:', {
+    airborneLen: airborneAllergens.length,
+    foodLen: foodAllergens.length,
+  });
   return { airborneAllergens, foodAllergens, notes };
 }
 
