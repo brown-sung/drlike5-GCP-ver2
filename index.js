@@ -5,6 +5,8 @@ const {
   setFirestoreData,
   analyzeConversation,
   resetUserData,
+  generateNextQuestion,
+  analyzeAllergyFromImage,
 } = require('./services');
 const stateHandlers = require('./handlers');
 const { createResponseFormat, createResultCardResponse } = require('./utils'); // ★ createResultCardResponse 임포트
@@ -23,13 +25,67 @@ app.post('/skill', async (req, res) => {
     const userKey = req.body.userRequest?.user?.id;
     const utterance = req.body.userRequest?.utterance;
     const callbackUrl = req.body.userRequest?.callbackUrl;
+    const mediaUrl = req.body.userRequest?.params?.media?.url;
+    const mediaType = req.body.userRequest?.params?.media?.type;
 
-    if (!userKey || !utterance) {
+    if (!userKey) {
       return res.status(400).json(createResponseFormat('잘못된 요청입니다.'));
     }
-    console.log(`[Request] user: ${userKey}, utterance: "${utterance}"`);
+    console.log(
+      `[Request] user: ${userKey}, utterance: "${utterance || ''}", mediaType: ${
+        mediaType || 'none'
+      }`
+    );
 
     let userData = await getFirestoreData(userKey);
+
+    // 이미지 업로드 처리 분기 (카카오 userRequest.params.media.url)
+    if (mediaUrl && mediaType === 'image') {
+      try {
+        const analysis = await analyzeAllergyFromImage(mediaUrl);
+
+        // 기존 데이터 병합
+        const history = Array.isArray(userData?.history) ? [...userData.history] : [];
+        const extracted =
+          typeof userData?.extracted_data === 'object' && userData.extracted_data !== null
+            ? { ...userData.extracted_data }
+            : {};
+
+        if (analysis.airborneAllergens && analysis.airborneAllergens.length > 0) {
+          extracted['공중 항원'] = 'Y';
+          extracted['공중 항원 상세'] = analysis.airborneAllergens.join(', ');
+        }
+        if (analysis.foodAllergens && analysis.foodAllergens.length > 0) {
+          extracted['식품 항원'] = 'Y';
+          extracted['식품 항원 상세'] = analysis.foodAllergens.join(', ');
+        }
+
+        history.push('사용자: [이미지 업로드]');
+        history.push('챗봇: 업로드하신 이미지에서 알레르기 관련 정보를 반영했습니다.');
+
+        await setFirestoreData(userKey, {
+          state: userData?.state || 'COLLECTING',
+          history,
+          extracted_data: extracted,
+        });
+
+        const nextQuestion = await generateNextQuestion(history, extracted);
+        return res.status(200).json(createResponseFormat(nextQuestion));
+      } catch (e) {
+        console.error('[Image Analysis Error]', e);
+        return res
+          .status(200)
+          .json(
+            createResponseFormat(
+              '이미지를 해석하는 중 문제가 발생했어요. 다른 이미지로 다시 시도해 주세요.'
+            )
+          );
+      }
+    }
+
+    if (!utterance) {
+      return res.status(400).json(createResponseFormat('잘못된 요청입니다.'));
+    }
 
     // '다시 검사하기' 또는 '처음으로' 시 기존 데이터 완전 삭제
     if (utterance === '다시 검사하기' || utterance === '처음으로') {
@@ -89,7 +145,7 @@ app.post('/process-analysis-callback', async (req, res) => {
     console.error(`[Callback Error] user: ${userKey}`, error);
     const errorText =
       '죄송합니다, 답변을 분석하는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요. 😥';
-    finalResponse = createResponseFormat(errorText, ['다시 검사하기', '처음으로']);
+    finalResponse = createResponseFormat(errorText, ['다시 검사하기']);
   }
 
   await fetch(callbackUrl, {

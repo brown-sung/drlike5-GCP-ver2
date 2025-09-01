@@ -7,6 +7,7 @@ const {
   SYSTEM_PROMPT_GENERATE_QUESTION,
   SYSTEM_PROMPT_ANALYZE_COMPREHENSIVE,
   SYSTEM_PROMPT_WAIT_MESSAGE,
+  SYSTEM_PROMPT_ANALYZE_IMAGE_ALLERGY,
 } = require('./prompts');
 
 // --- 클라이언트 초기화 ---
@@ -21,17 +22,17 @@ const SESSION_TIMEOUT = 10 * 60 * 1000;
 const getFirestoreData = async (userKey) => {
   const doc = await firestore.collection('conversations').doc(userKey).get();
   if (!doc.exists) return null;
-  
+
   const data = doc.data();
-  
+
   // 세션 타임아웃 체크
-  if (data.lastActivity && (Date.now() - data.lastActivity) > SESSION_TIMEOUT) {
+  if (data.lastActivity && Date.now() - data.lastActivity > SESSION_TIMEOUT) {
     console.log(`[Session Timeout] user: ${userKey}, lastActivity: ${new Date(data.lastActivity)}`);
     // 세션 만료 시 데이터 자동 삭제
     await deleteFirestoreData(userKey);
     return null;
   }
-  
+
   return data;
 };
 
@@ -39,9 +40,9 @@ const setFirestoreData = async (userKey, data) => {
   // lastActivity 자동 업데이트
   const dataWithTimestamp = {
     ...data,
-    lastActivity: Date.now()
+    lastActivity: Date.now(),
   };
-  
+
   await firestore.collection('conversations').doc(userKey).set(dataWithTimestamp, { merge: true });
   console.log(`[Data Updated] user: ${userKey}, state: ${data.state || 'unknown'}`);
 };
@@ -156,6 +157,75 @@ async function callGeminiWithApiKey(
   }
 }
 
+// --- 이미지 다운로드(Base64) ---
+async function fetchImageAsBase64(imageUrl) {
+  const resp = await fetch(imageUrl);
+  if (!resp.ok) {
+    const errTxt = await resp.text().catch(() => '');
+    throw new Error(`Failed to fetch image: ${resp.status} ${errTxt}`);
+  }
+  const contentType = (resp.headers.get('content-type') || 'image/jpeg').split(';')[0];
+  const arrayBuf = await resp.arrayBuffer();
+  const base64 = Buffer.from(arrayBuf).toString('base64');
+  return { base64, mimeType: contentType };
+}
+
+// --- 이미지 기반 알레르기 분석 (Gemini 2.5 Flash) ---
+async function analyzeAllergyFromImage(imageUrl) {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY environment variable is not set.');
+  }
+  const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+  const body = {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: SYSTEM_PROMPT_ANALYZE_IMAGE_ALLERGY },
+          { inlineData: { mimeType, data: base64 } },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 2048,
+      responseMimeType: 'application/json',
+    },
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Gemini Image API Error (${response.status}): ${errorBody}`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    parsed = {};
+  }
+
+  const airborneAllergens = Array.isArray(parsed.airborne_allergens)
+    ? parsed.airborne_allergens
+    : [];
+  const foodAllergens = Array.isArray(parsed.food_allergens) ? parsed.food_allergens : [];
+  const notes = typeof parsed.notes === 'string' ? parsed.notes : '';
+
+  return { airborneAllergens, foodAllergens, notes };
+}
+
 // 대기 메시지 생성 함수 (API 키 방식)
 async function generateWaitMessage(history) {
   const context = `---대화 기록---\n${history.join('\n')}`;
@@ -212,4 +282,5 @@ module.exports = {
   generateNextQuestion,
   analyzeConversation,
   resetUserData,
+  analyzeAllergyFromImage,
 };

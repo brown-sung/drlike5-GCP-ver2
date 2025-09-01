@@ -99,6 +99,26 @@ Example JSON Output:
 }
 `;
 
+// 이미지 기반 알레르기 분석 프롬프트
+const SYSTEM_PROMPT_ANALYZE_IMAGE_ALLERGY = `
+당신은 의료 문서나 검사 결과 사진에서 알레르기 관련 정보를 찾아내는 AI입니다.
+다음 요구사항을 지켜서 오직 JSON 하나로만 응답하세요.
+
+규칙:
+1) 공중 알레르겐(예: 집먼지진드기, 꽃가루, 곰팡이 등) 목록을 추출하여 배열로 제공합니다.
+2) 식품 알레르겐(예: 우유, 달걀, 밀, 땅콩, 견과 등) 목록을 추출하여 배열로 제공합니다.
+3) 수치/등급/클래스가 보이면 해당 항목 옆에 괄호로 간단히 표기합니다. 예: "집먼지진드기(class 3)".
+4) 한국어로 작성합니다.
+5) 아래 JSON 스키마를 반드시 지킵니다. 불필요한 텍스트를 포함하지 않습니다.
+
+예시 출력 스키마:
+{
+  "airborne_allergens": ["집먼지진드기(class 3)", "자작나무 꽃가루"],
+  "food_allergens": ["우유", "달걀(class 2)"],
+  "notes": "판독 불명확 항목은 제외"
+}
+`;
+
 module.exports = {
   TERMINATION_PHRASES,
   AFFIRMATIVE_PHRASES,
@@ -106,4 +126,5 @@ module.exports = {
   SYSTEM_PROMPT_ANALYZE_COMPREHENSIVE,
   SYSTEM_PROMPT_GENERATE_QUESTION,
   SYSTEM_PROMPT_WAIT_MESSAGE,
+  SYSTEM_PROMPT_ANALYZE_IMAGE_ALLERGY,
 };
