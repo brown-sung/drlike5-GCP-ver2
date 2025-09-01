@@ -6,6 +6,7 @@ const {
   generateWaitMessage,
   archiveToBigQuery,
   deleteFirestoreData,
+  resetUserData,
 } = require('./services');
 const { createResponseFormat, createCallbackWaitResponse } = require('./utils');
 const { TERMINATION_PHRASES, AFFIRMATIVE_PHRASES, ALL_SYMPTOM_FIELDS } = require('./prompts');
@@ -87,7 +88,7 @@ async function handlePostAnalysis(userKey, utterance, history, extracted_data) {
 async function handleTerminated(userKey, history, extracted_data) {
   const judgement = judgeAsthma(extracted_data);
   await archiveToBigQuery(userKey, { history, extracted_data, judgement });
-  await deleteFirestoreData(userKey);
+  await resetUserData(userKey); // deleteFirestoreData 대신 resetUserData 사용
   return createResponseFormat('상담이 종료되었습니다. 이용해주셔서 감사합니다!');
 }
 

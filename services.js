@@ -14,13 +14,61 @@ const firestore = new Firestore();
 const bigquery = new BigQuery();
 const tasksClient = new CloudTasksClient();
 
+// 세션 타임아웃 설정 (10분 = 600,000ms)
+const SESSION_TIMEOUT = 10 * 60 * 1000;
+
 // --- Firestore, BigQuery, Cloud Tasks 서비스 (변경 없음) ---
-const getFirestoreData = async (userKey) =>
-  (await firestore.collection('conversations').doc(userKey).get()).data();
-const setFirestoreData = async (userKey, data) =>
-  await firestore.collection('conversations').doc(userKey).set(data, { merge: true });
-const deleteFirestoreData = async (userKey) =>
-  await firestore.collection('conversations').doc(userKey).delete();
+const getFirestoreData = async (userKey) => {
+  const doc = await firestore.collection('conversations').doc(userKey).get();
+  if (!doc.exists) return null;
+  
+  const data = doc.data();
+  
+  // 세션 타임아웃 체크
+  if (data.lastActivity && (Date.now() - data.lastActivity) > SESSION_TIMEOUT) {
+    console.log(`[Session Timeout] user: ${userKey}, lastActivity: ${new Date(data.lastActivity)}`);
+    // 세션 만료 시 데이터 자동 삭제
+    await deleteFirestoreData(userKey);
+    return null;
+  }
+  
+  return data;
+};
+
+const setFirestoreData = async (userKey, data) => {
+  // lastActivity 자동 업데이트
+  const dataWithTimestamp = {
+    ...data,
+    lastActivity: Date.now()
+  };
+  
+  await firestore.collection('conversations').doc(userKey).set(dataWithTimestamp, { merge: true });
+  console.log(`[Data Updated] user: ${userKey}, state: ${data.state || 'unknown'}`);
+};
+
+const deleteFirestoreData = async (userKey) => {
+  try {
+    await firestore.collection('conversations').doc(userKey).delete();
+    console.log(`[Data Deleted] user: ${userKey}`);
+    return true;
+  } catch (error) {
+    console.error(`[Delete Error] user: ${userKey}`, error);
+    return false;
+  }
+};
+
+// 사용자 데이터 완전 초기화 함수
+const resetUserData = async (userKey) => {
+  try {
+    await deleteFirestoreData(userKey);
+    console.log(`[User Reset] user: ${userKey} - all data cleared`);
+    return true;
+  } catch (error) {
+    console.error(`[Reset Error] user: ${userKey}`, error);
+    return false;
+  }
+};
+
 const createAnalysisTask = async (payload) => {
   const { GCP_PROJECT, GCP_LOCATION, TASK_QUEUE_NAME, CLOUD_RUN_URL } = process.env;
   const queuePath = tasksClient.queuePath(GCP_PROJECT, GCP_LOCATION, TASK_QUEUE_NAME);
@@ -163,4 +211,5 @@ module.exports = {
   generateWaitMessage,
   generateNextQuestion,
   analyzeConversation,
+  resetUserData,
 };

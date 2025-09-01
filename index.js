@@ -1,6 +1,6 @@
 // 파일: index.js
 const express = require('express');
-const { getFirestoreData, setFirestoreData, analyzeConversation } = require('./services');
+const { getFirestoreData, setFirestoreData, analyzeConversation, resetUserData } = require('./services');
 const stateHandlers = require('./handlers');
 const { createResponseFormat, createResultCardResponse } = require('./utils'); // ★ createResultCardResponse 임포트
 const { judgeAsthma, formatResult } = require('./analysis');
@@ -25,9 +25,14 @@ app.post('/skill', async (req, res) => {
     console.log(`[Request] user: ${userKey}, utterance: "${utterance}"`);
 
     let userData = await getFirestoreData(userKey);
+    
+    // '다시 검사하기' 또는 '처음으로' 시 기존 데이터 완전 삭제
     if (utterance === '다시 검사하기' || utterance === '처음으로') {
-      userData = { state: 'INIT', history: [] };
+      console.log(`[Session Reset] user: ${userKey}, reason: ${utterance}`);
+      await resetUserData(userKey);
+      userData = null;
     }
+    
     if (!userData) {
       userData = { state: 'INIT', history: [] };
     }
