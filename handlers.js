@@ -1,0 +1,101 @@
+// 파일: handlers.js
+const {
+  setFirestoreData,
+  generateNextQuestion,
+  createAnalysisTask,
+  generateWaitMessage,
+  archiveToBigQuery,
+  deleteFirestoreData,
+} = require('./services');
+const { createResponseFormat, createCallbackWaitResponse } = require('./utils');
+const { TERMINATION_PHRASES, AFFIRMATIVE_PHRASES, ALL_SYMPTOM_FIELDS } = require('./prompts');
+const { judgeAsthma } = require('./analysis');
+
+async function handleInit(userKey, utterance) {
+  const initialData = ALL_SYMPTOM_FIELDS.reduce((acc, field) => ({ ...acc, [field]: null }), {});
+  const newHistory = [`사용자: ${utterance}`];
+
+  const nextQuestion = await generateNextQuestion(newHistory, initialData);
+  newHistory.push(`챗봇: ${nextQuestion}`);
+
+  await setFirestoreData(userKey, {
+    state: 'COLLECTING',
+    history: newHistory,
+    extracted_data: initialData,
+  });
+
+  return createResponseFormat(nextQuestion);
+}
+
+async function handleCollecting(userKey, utterance, history, extracted_data) {
+  // 사용자가 분석을 요청하는 키워드를 말했을 때
+  if (utterance.includes('분석해') || utterance.includes('결과')) {
+    await setFirestoreData(userKey, { state: 'CONFIRM_ANALYSIS' });
+    return createResponseFormat(
+      '알겠습니다. 그럼 지금까지 말씀해주신 내용을 바탕으로 분석을 진행해볼까요?'
+    );
+  }
+
+  // AI가 분석을 제안했는데 사용자가 동의했을 때
+  if (
+    AFFIRMATIVE_PHRASES.some((phrase) => utterance.includes(phrase)) &&
+    history[history.length - 1].includes('분석을 진행해볼까요?')
+  ) {
+    return handleConfirmAnalysis(userKey, utterance, history, extracted_data, callbackUrl); // callbackUrl이 필요하므로 index.js에서 전달받아야 함
+  }
+
+  history.push(`사용자: ${utterance}`);
+  const nextQuestion = await generateNextQuestion(history, extracted_data);
+  history.push(`챗봇: ${nextQuestion}`);
+
+  // AI가 분석을 제안했는지 확인하고 상태 변경
+  if (nextQuestion.includes('말씀하고 싶은 다른 증상')) {
+    await setFirestoreData(userKey, { state: 'CONFIRM_ANALYSIS', history });
+  } else {
+    await setFirestoreData(userKey, { history });
+  }
+
+  return createResponseFormat(nextQuestion);
+}
+
+async function handleConfirmAnalysis(userKey, utterance, history, extracted_data, callbackUrl) {
+  if (!callbackUrl) {
+    return createResponseFormat('오류: 콜백 URL이 없습니다. 다시 시도해주세요.');
+  }
+
+  if (AFFIRMATIVE_PHRASES.some((phrase) => utterance.includes(phrase))) {
+    history.push(`사용자: ${utterance}`);
+    const waitMessage = await generateWaitMessage(history);
+    await createAnalysisTask({ userKey, history, extracted_data, callbackUrl });
+    return createCallbackWaitResponse(waitMessage);
+  }
+
+  history.push(`사용자: ${utterance}`);
+  await setFirestoreData(userKey, { state: 'COLLECTING' });
+  return createResponseFormat('알겠습니다. 더 말씀하고 싶은 증상이 있으신가요?');
+}
+
+async function handlePostAnalysis(userKey, utterance, history, extracted_data) {
+  // "다시 검사하기", "처음으로"는 index.js에서 INIT 상태로 처리
+  if (TERMINATION_PHRASES.some((phrase) => utterance.includes(phrase))) {
+    return handleTerminated(userKey, history, extracted_data);
+  }
+  // 그 외 다른 대답은 추가 증상으로 간주하고 다시 수집 시작
+  return handleCollecting(userKey, utterance, history, extracted_data);
+}
+
+async function handleTerminated(userKey, history, extracted_data) {
+  const judgement = judgeAsthma(extracted_data);
+  await archiveToBigQuery(userKey, { history, extracted_data, judgement });
+  await deleteFirestoreData(userKey);
+  return createResponseFormat('상담이 종료되었습니다. 이용해주셔서 감사합니다!');
+}
+
+const stateHandlers = {
+  INIT: (userKey, utterance) => handleInit(userKey, utterance),
+  COLLECTING: handleCollecting,
+  CONFIRM_ANALYSIS: handleConfirmAnalysis,
+  POST_ANALYSIS: handlePostAnalysis,
+};
+
+module.exports = stateHandlers;

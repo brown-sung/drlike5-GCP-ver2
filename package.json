@@ -1,0 +1,19 @@
+{
+  "name": "asthma-bot-gcp-apikey-final",
+  "version": "1.0.0",
+  "description": "Multi-turn asthma bot using Gemini API Key",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google-cloud/bigquery": "^7.8.0",
+    "@google-cloud/firestore": "^7.8.0",
+    "@google-cloud/tasks": "^5.3.0",
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2"
+  }
+}
