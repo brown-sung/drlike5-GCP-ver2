@@ -10,7 +10,7 @@ const {
 } = require('./services');
 const { createResponseFormat, createCallbackWaitResponse } = require('./utils');
 const { TERMINATION_PHRASES, AFFIRMATIVE_PHRASES, ALL_SYMPTOM_FIELDS } = require('./prompts');
-const { judgeAsthma } = require('./analysis');
+const { judgeAsthma, formatDetailedResult } = require('./analysis');
 
 async function handleInit(userKey, utterance) {
   const initialData = ALL_SYMPTOM_FIELDS.reduce((acc, field) => ({ ...acc, [field]: null }), {});
@@ -77,6 +77,12 @@ async function handleConfirmAnalysis(userKey, utterance, history, extracted_data
 }
 
 async function handlePostAnalysis(userKey, utterance, history, extracted_data) {
+  // "상세 결과 보기" 요청 처리
+  if (utterance === '상세 결과 보기') {
+    const detailedResult = formatDetailedResult(extracted_data);
+    return createResponseFormat(detailedResult, ['다시 검사하기']);
+  }
+
   // "다시 검사하기", "처음으로"는 index.js에서 INIT 상태로 처리
   if (TERMINATION_PHRASES.some((phrase) => utterance.includes(phrase))) {
     return handleTerminated(userKey, history, extracted_data);
