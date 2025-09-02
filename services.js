@@ -304,7 +304,7 @@ async function parseAllergyTestResults(extractedText) {
     extractedText,
     'gemini-2.5-flash',
     true,
-    30000
+    55000
   );
 
   let parsed;
@@ -320,7 +320,7 @@ async function parseAllergyTestResults(extractedText) {
     totalIge: parsed.total_ige,
     airborneCount: parsed.airborne_allergens?.length || 0,
     foodCount: parsed.food_allergens?.length || 0,
-    otherCount: parsed.other_allergens?.length || 0,
+    asthmaRelatedCount: parsed.asthma_related?.length || 0,
   });
 
   return parsed;
@@ -335,7 +335,7 @@ async function analyzeAsthmaRelation(allergyTestData) {
     JSON.stringify(allergyTestData, null, 2),
     'gemini-2.5-flash',
     true,
-    30000
+    55000
   );
 
   let parsed;
@@ -347,11 +347,11 @@ async function analyzeAsthmaRelation(allergyTestData) {
   }
 
   console.log('[Asthma Analysis] Completed:', {
-    highRiskCount: parsed.asthma_related_high_risk?.length || 0,
-    mediumRiskCount: parsed.asthma_related_medium_risk?.length || 0,
-    totalPositive: parsed.total_positive_count,
-    asthmaRelated: parsed.asthma_related_count,
-    riskAssessment: parsed.asthma_risk_assessment,
+    highRiskCount: parsed.asthma_high_risk?.length || 0,
+    mediumRiskCount: parsed.asthma_medium_risk?.length || 0,
+    totalPositive: parsed.total_positive,
+    asthmaRelated: parsed.asthma_related,
+    riskLevel: parsed.risk_level,
   });
 
   return parsed;

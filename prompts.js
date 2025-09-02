@@ -119,110 +119,43 @@ JSON 형식:
 중요: 누락 없이 모든 텍스트를 정확히 추출하세요.
 `;
 
-// 2단계: 추출된 텍스트를 검사 항목-결과 쌍으로 정제
+// 2단계: 추출된 텍스트를 검사 항목-결과 쌍으로 정제 (최적화)
 const SYSTEM_PROMPT_PARSE_ALLERGY_TEST = `
-당신은 알레르기 검사 결과 텍스트를 분석하여 검사 항목과 결과를 쌍으로 정리하는 AI입니다.
-주어진 텍스트에서 모든 알레르기 검사 항목과 그 결과를 추출하여 JSON으로 정리하세요.
-
-분석 대상:
-- MAST Allergy, RAST, 피부반응검사 등 모든 알레르기 검사
-- 알레르겐명, Class/등급, IU/mL 수치, 양성/음성 결과
+알레르기 검사 결과 텍스트에서 양성 반응(Class 1 이상) 항목만 추출하여 JSON으로 정리하세요.
 
 추출 규칙:
-1) 모든 검사 항목을 개별적으로 추출
-2) 각 항목의 결과(Class, IU/mL, 양성/음성) 포함
-3) 검사 유형별로 분류 (공중 알레르겐, 식품 알레르겐, 기타)
-4) 총 IgE 수치도 별도로 추출
+1) Class 1 이상인 양성 항목만 추출
+2) 형식: "알레르겐명 코드(Class X, Y IU/mL)"
+3) 검사 종류와 총 IgE 수치도 포함
 
 JSON 형식:
 {
-  "test_type": "검사 종류 (예: MAST Allergy, RAST 등)",
+  "test_type": "검사 종류",
   "total_ige": "총 IgE 수치",
-  "airborne_allergens": [
-    {
-      "name": "알레르겐명",
-      "code": "코드 (예: D1, M2 등)",
-      "class": "Class 등급",
-      "value": "IU/mL 수치",
-      "result": "양성/음성"
-    }
-  ],
-  "food_allergens": [
-    {
-      "name": "알레르겐명", 
-      "code": "코드 (예: F1, F2 등)",
-      "class": "Class 등급",
-      "value": "IU/mL 수치",
-      "result": "양성/음성"
-    }
-  ],
-  "other_allergens": [
-    {
-      "name": "알레르겐명",
-      "code": "코드",
-      "class": "Class 등급", 
-      "value": "IU/mL 수치",
-      "result": "양성/음성"
-    }
-  ]
+  "airborne_allergens": ["집먼지진드기 D1(Class 3, 12.85)", "집먼지진드기 D2(Class 5, 60.15)"],
+  "food_allergens": ["달걀흰자 F1(Class 1, 0.53)"],
+  "asthma_related": ["집먼지진드기 D1", "집먼지진드기 D2"]
 }
 
-중요: 모든 검사 항목을 누락 없이 추출하고, Class 0이어도 포함하세요.
+천식 관련 알레르겐: 집먼지진드기, 꽃가루, 곰팡이, 동물털, 바퀴벌레
 `;
 
-// 3단계: 천식 관련성 분석
+// 3단계: 천식 관련성 분석 (최적화)
 const SYSTEM_PROMPT_ANALYZE_ASTHMA_RELATION = `
-당신은 알레르기 검사 결과에서 천식과 관련된 항목들을 분석하는 전문 AI입니다.
-주어진 알레르기 검사 결과에서 천식 발생/악화와 관련된 항목들을 식별하고 분석하세요.
+알레르기 검사 결과에서 천식 관련 항목을 분석하여 간단한 JSON으로 정리하세요.
 
-천식 관련 알레르겐 분류:
-
-1. **고위험 천식 유발 알레르겐:**
-   - 집먼지진드기 (D1, D2, D72, D70)
-   - 꽃가루 (자작나무, 오리나무, 참나무, 잔디, 쑥, 돼지풀)
-   - 곰팡이 (Alternaria, Aspergillus, Cladosporium, Penicillium)
-   - 동물털 (고양이, 개, 말)
-
-2. **중위험 천식 유발 알레르겐:**
-   - 바퀴벌레
-   - 일부 식품 (우유, 달걀, 견과류 - 특히 어린이에서)
-
-3. **낮은 위험 또는 관련성 낮음:**
-   - 대부분의 식품 알레르겐
-   - 일부 곰팡이
-
-분석 규칙:
-1) 각 알레르겐의 천식 관련성 수준 평가 (고위험/중위험/낮은위험)
-2) 양성 반응(Class 1 이상)인 항목들 중 천식 관련 항목 식별
-3) 총 IgE 수치가 높으면 천식 위험 증가로 평가
+천식 관련 알레르겐:
+- 고위험: 집먼지진드기, 꽃가루, 곰팡이, 동물털
+- 중위험: 바퀴벌레, 우유, 달걀, 견과류
 
 JSON 형식:
 {
-  "asthma_related_high_risk": [
-    {
-      "name": "알레르겐명",
-      "code": "코드",
-      "class": "Class 등급",
-      "value": "IU/mL 수치",
-      "asthma_risk": "고위험"
-    }
-  ],
-  "asthma_related_medium_risk": [
-    {
-      "name": "알레르겐명",
-      "code": "코드", 
-      "class": "Class 등급",
-      "value": "IU/mL 수치",
-      "asthma_risk": "중위험"
-    }
-  ],
-  "total_positive_count": "양성 반응 총 개수",
-  "asthma_related_count": "천식 관련 양성 반응 개수",
-  "total_ige_level": "총 IgE 수치",
-  "asthma_risk_assessment": "전체적인 천식 위험 평가 (높음/보통/낮음)"
+  "asthma_high_risk": ["집먼지진드기 D1(Class 3, 12.85)", "집먼지진드기 D2(Class 5, 60.15)"],
+  "asthma_medium_risk": ["달걀흰자 F1(Class 1, 0.53)"],
+  "total_positive": 3,
+  "asthma_related": 2,
+  "risk_level": "높음"
 }
-
-중요: Class 1 이상의 양성 반응만 천식 관련성 분석에 포함하세요.
 `;
 
 module.exports = {

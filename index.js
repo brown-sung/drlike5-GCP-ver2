@@ -135,38 +135,15 @@ async function processAllergyTestAnalysis(userKey, mediaUrl, userData, callbackU
         ? { ...userData.extracted_data }
         : {};
 
-    // 알레르기 정보 추출 및 저장
-    const allAllergens = [
-      ...(allergyTestData.airborne_allergens || []),
-      ...(allergyTestData.food_allergens || []),
-      ...(allergyTestData.other_allergens || []),
-    ];
+    // 알레르기 정보 추출 및 저장 (단순화된 구조)
+    if (allergyTestData.airborne_allergens && allergyTestData.airborne_allergens.length > 0) {
+      extracted['공중 항원'] = 'Y';
+      extracted['공중 항원 상세'] = allergyTestData.airborne_allergens.join(', ');
+    }
 
-    const positiveAllergens = allAllergens.filter(
-      (item) => item.result === '양성' || (item.class && parseInt(item.class) >= 1)
-    );
-
-    if (positiveAllergens.length > 0) {
-      const airbornePositive = positiveAllergens.filter((item) =>
-        allergyTestData.airborne_allergens?.includes(item)
-      );
-      const foodPositive = positiveAllergens.filter((item) =>
-        allergyTestData.food_allergens?.includes(item)
-      );
-
-      if (airbornePositive.length > 0) {
-        extracted['공중 항원'] = 'Y';
-        extracted['공중 항원 상세'] = airbornePositive
-          .map((item) => `${item.name}(${item.class}, ${item.value})`)
-          .join(', ');
-      }
-
-      if (foodPositive.length > 0) {
-        extracted['식품 항원'] = 'Y';
-        extracted['식품 항원 상세'] = foodPositive
-          .map((item) => `${item.name}(${item.class}, ${item.value})`)
-          .join(', ');
-      }
+    if (allergyTestData.food_allergens && allergyTestData.food_allergens.length > 0) {
+      extracted['식품 항원'] = 'Y';
+      extracted['식품 항원 상세'] = allergyTestData.food_allergens.join(', ');
     }
 
     if (allergyTestData.total_ige) {
@@ -176,47 +153,44 @@ async function processAllergyTestAnalysis(userKey, mediaUrl, userData, callbackU
     // 상세 검사 결과 저장 (상세 결과 보기용)
     extracted['알레르기 검사 결과'] = JSON.stringify(allergyTestData);
 
-    // 사용자에게 분석 결과 요약 메시지 생성
+    // 사용자에게 분석 결과 요약 메시지 생성 (단순화)
     let analysisSummary = `📋 **${
       allergyTestData.test_type || '알레르기 검사'
     } 결과 분석 완료**\n\n`;
 
     analysisSummary += `🔍 **검사 개요:**\n`;
-    analysisSummary += `• 총 검사 항목: ${allAllergens.length}개\n`;
-    analysisSummary += `• 양성 반응: ${
-      asthmaAnalysis.total_positive_count || positiveAllergens.length
-    }개\n`;
+    analysisSummary += `• 양성 반응: ${asthmaAnalysis.total_positive || 0}개\n`;
 
-    if (asthmaAnalysis.asthma_related_count > 0) {
-      analysisSummary += `• 천식 관련 항목: ${asthmaAnalysis.asthma_related_count}개\n`;
+    if (asthmaAnalysis.asthma_related > 0) {
+      analysisSummary += `• 천식 관련 항목: ${asthmaAnalysis.asthma_related}개\n`;
     }
 
     if (allergyTestData.total_ige) {
       analysisSummary += `• 총 IgE: ${allergyTestData.total_ige}\n`;
     }
 
-    // 천식 관련 항목 요약
+    // 천식 관련 항목 요약 (단순화)
     if (
-      asthmaAnalysis.asthma_related_high_risk?.length > 0 ||
-      asthmaAnalysis.asthma_related_medium_risk?.length > 0
+      asthmaAnalysis.asthma_high_risk?.length > 0 ||
+      asthmaAnalysis.asthma_medium_risk?.length > 0
     ) {
       analysisSummary += `\n⚠️ **천식 관련 알레르기 항목:**\n`;
 
-      if (asthmaAnalysis.asthma_related_high_risk?.length > 0) {
+      if (asthmaAnalysis.asthma_high_risk?.length > 0) {
         analysisSummary += `\n🔴 **고위험:**\n`;
-        asthmaAnalysis.asthma_related_high_risk.forEach((item) => {
-          analysisSummary += `• ${item.name} (${item.class}, ${item.value})\n`;
+        asthmaAnalysis.asthma_high_risk.forEach((item) => {
+          analysisSummary += `• ${item}\n`;
         });
       }
 
-      if (asthmaAnalysis.asthma_related_medium_risk?.length > 0) {
+      if (asthmaAnalysis.asthma_medium_risk?.length > 0) {
         analysisSummary += `\n🟡 **중위험:**\n`;
-        asthmaAnalysis.asthma_related_medium_risk.forEach((item) => {
-          analysisSummary += `• ${item.name} (${item.class}, ${item.value})\n`;
+        asthmaAnalysis.asthma_medium_risk.forEach((item) => {
+          analysisSummary += `• ${item}\n`;
         });
       }
 
-      analysisSummary += `\n💡 **천식 위험도:** ${asthmaAnalysis.asthma_risk_assessment}\n`;
+      analysisSummary += `\n💡 **천식 위험도:** ${asthmaAnalysis.risk_level}\n`;
     }
 
     analysisSummary += `\n이 정보가 증상 분석에 반영됩니다. 다른 증상에 대해서도 말씀해 주세요.`;
