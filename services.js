@@ -264,13 +264,16 @@ async function analyzeAllergyFromImage(imageUrl) {
     ? parsed.airborne_allergens
     : [];
   const foodAllergens = Array.isArray(parsed.food_allergens) ? parsed.food_allergens : [];
+  const totalIge = typeof parsed.total_ige === 'string' ? parsed.total_ige : '';
   const notes = typeof parsed.notes === 'string' ? parsed.notes : '';
 
   console.log('[Gemini Vision] Parsed:', {
     airborneLen: airborneAllergens.length,
     foodLen: foodAllergens.length,
+    totalIge,
+    notes: notes.slice(0, 100),
   });
-  return { airborneAllergens, foodAllergens, notes };
+  return { airborneAllergens, foodAllergens, totalIge, notes };
 }
 
 // 대기 메시지 생성 함수 (API 키 방식)

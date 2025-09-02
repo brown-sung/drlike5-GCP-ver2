@@ -128,6 +128,7 @@ async function processImageAnalysis(userKey, mediaUrl, userData, callbackUrl) {
         ? { ...userData.extracted_data }
         : {};
 
+    // 알레르기 정보 추출 및 저장
     if (analysis.airborneAllergens && analysis.airborneAllergens.length > 0) {
       extracted['공중 항원'] = 'Y';
       extracted['공중 항원 상세'] = analysis.airborneAllergens.join(', ');
@@ -136,9 +137,40 @@ async function processImageAnalysis(userKey, mediaUrl, userData, callbackUrl) {
       extracted['식품 항원'] = 'Y';
       extracted['식품 항원 상세'] = analysis.foodAllergens.join(', ');
     }
+    if (analysis.totalIge) {
+      extracted['총 IgE'] = analysis.totalIge;
+    }
+
+    // 사용자에게 분석 결과 요약 메시지 생성
+    let analysisSummary = '업로드하신 알레르기 검사 결과를 분석했습니다.\n\n';
+
+    if (analysis.airborneAllergens.length > 0 || analysis.foodAllergens.length > 0) {
+      analysisSummary += '🔍 **검출된 알레르기 항원:**\n';
+
+      if (analysis.airborneAllergens.length > 0) {
+        analysisSummary += `\n🌬️ **공중 알레르겐:**\n${analysis.airborneAllergens
+          .map((item) => `• ${item}`)
+          .join('\n')}`;
+      }
+
+      if (analysis.foodAllergens.length > 0) {
+        analysisSummary += `\n🍽️ **식품 알레르겐:**\n${analysis.foodAllergens
+          .map((item) => `• ${item}`)
+          .join('\n')}`;
+      }
+
+      if (analysis.totalIge) {
+        analysisSummary += `\n📊 **총 IgE:** ${analysis.totalIge}`;
+      }
+
+      analysisSummary += '\n\n이 정보가 증상 분석에 반영됩니다.';
+    } else {
+      analysisSummary +=
+        '검사 결과에서 특별한 알레르기 반응은 확인되지 않았습니다.\n\n다른 증상에 대해 말씀해 주세요.';
+    }
 
     history.push('사용자: [이미지 업로드]');
-    history.push('챗봇: 업로드하신 이미지에서 알레르기 관련 정보를 반영했습니다.');
+    history.push(`챗봇: ${analysisSummary}`);
 
     await setFirestoreData(userKey, {
       state: userData?.state || 'COLLECTING',
