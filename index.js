@@ -6,7 +6,6 @@ const {
   analyzeConversation,
   resetUserData,
   generateNextQuestion,
-  analyzeAllergyFromImage,
   analyzeAllergyTestImage,
   generateWaitMessage,
   generateAllergyTestWaitMessage,

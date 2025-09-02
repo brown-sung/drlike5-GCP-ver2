@@ -7,7 +7,6 @@ const {
   SYSTEM_PROMPT_GENERATE_QUESTION,
   SYSTEM_PROMPT_ANALYZE_COMPREHENSIVE,
   SYSTEM_PROMPT_WAIT_MESSAGE,
-  SYSTEM_PROMPT_ANALYZE_IMAGE_ALLERGY,
   SYSTEM_PROMPT_EXTRACT_TEXT_FROM_IMAGE,
   SYSTEM_PROMPT_PARSE_ALLERGY_TEST,
   SYSTEM_PROMPT_ANALYZE_ASTHMA_RELATION,
@@ -204,79 +203,6 @@ async function fetchImageAsBase64(imageUrl) {
     }`
   );
   return { base64, mimeType: contentType };
-}
-
-// --- 이미지 기반 알레르기 분석 (Gemini 2.5 Flash) ---
-async function analyzeAllergyFromImage(imageUrl) {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY environment variable is not set.');
-  }
-  const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
-
-  const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
-  if (!allowed.has(mimeType)) {
-    throw new Error(
-      `Unsupported image mime after normalization: ${mimeType}. Please upload JPG/PNG/WEBP.`
-    );
-  }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-  const body = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: SYSTEM_PROMPT_ANALYZE_IMAGE_ALLERGY },
-          { inlineData: { mimeType, data: base64 } },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 2048,
-      responseMimeType: 'application/json',
-    },
-  };
-
-  console.log('[Gemini Vision] Requesting analysis...');
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error('[Gemini Vision] Error body:', errorBody?.slice(0, 500));
-    throw new Error(`Gemini Image API Error (${response.status})`);
-  }
-
-  const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch (e) {
-    console.warn('[Gemini Vision] Non-JSON response snippet:', String(text).slice(0, 200));
-    parsed = {};
-  }
-
-  const airborneAllergens = Array.isArray(parsed.airborne_allergens)
-    ? parsed.airborne_allergens
-    : [];
-  const foodAllergens = Array.isArray(parsed.food_allergens) ? parsed.food_allergens : [];
-  const totalIge = typeof parsed.total_ige === 'string' ? parsed.total_ige : '';
-  const notes = typeof parsed.notes === 'string' ? parsed.notes : '';
-
-  console.log('[Gemini Vision] Parsed:', {
-    airborneLen: airborneAllergens.length,
-    foodLen: foodAllergens.length,
-    totalIge,
-    notes: notes.slice(0, 100),
-  });
-  return { airborneAllergens, foodAllergens, totalIge, notes };
 }
 
 // 대기 메시지 생성 함수 (API 키 방식)
@@ -492,7 +418,6 @@ module.exports = {
   generateNextQuestion,
   analyzeConversation,
   resetUserData,
-  analyzeAllergyFromImage,
   analyzeAllergyTestImage,
   extractTextFromImage,
   parseAllergyTestResults,
