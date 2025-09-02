@@ -9,7 +9,6 @@ const {
   SYSTEM_PROMPT_WAIT_MESSAGE,
   SYSTEM_PROMPT_EXTRACT_TEXT_FROM_IMAGE,
   SYSTEM_PROMPT_PARSE_ALLERGY_TEST,
-  SYSTEM_PROMPT_ANALYZE_ASTHMA_RELATION,
 } = require('./prompts');
 
 // --- 클라이언트 초기화 ---
@@ -309,9 +308,9 @@ async function extractTextFromImage(imageUrl) {
   return parsed.extracted_text;
 }
 
-// 2단계: 텍스트를 검사 항목-결과 쌍으로 정제
+// 2단계: 알레르기 검사 결과 분석 (통합)
 async function parseAllergyTestResults(extractedText) {
-  console.log('[Parse Allergy Test] Starting analysis...');
+  console.log('[Allergy Test Analysis] Starting integrated analysis...');
 
   const resultText = await callGeminiWithApiKey(
     SYSTEM_PROMPT_PARSE_ALLERGY_TEST,
@@ -325,44 +324,17 @@ async function parseAllergyTestResults(extractedText) {
   try {
     parsed = JSON.parse(resultText);
   } catch (e) {
-    console.warn('[Parse Allergy Test] Non-JSON response:', resultText.slice(0, 200));
+    console.warn('[Allergy Test Analysis] Non-JSON response:', resultText.slice(0, 200));
     throw new Error('Failed to parse allergy test results');
   }
 
-  console.log('[Parse Allergy Test] Completed:', {
+  console.log('[Allergy Test Analysis] Completed:', {
     testType: parsed.test_type,
     totalIge: parsed.total_ige,
     airborneCount: parsed.airborne_allergens?.length || 0,
     foodCount: parsed.food_allergens?.length || 0,
-    asthmaRelatedCount: parsed.asthma_related?.length || 0,
-  });
-
-  return parsed;
-}
-
-// 3단계: 천식 관련성 분석
-async function analyzeAsthmaRelation(allergyTestData) {
-  console.log('[Asthma Analysis] Starting analysis...');
-
-  const resultText = await callGeminiWithApiKey(
-    SYSTEM_PROMPT_ANALYZE_ASTHMA_RELATION,
-    JSON.stringify(allergyTestData, null, 2),
-    'gemini-2.5-flash',
-    true,
-    55000
-  );
-
-  let parsed;
-  try {
-    parsed = JSON.parse(resultText);
-  } catch (e) {
-    console.warn('[Asthma Analysis] Non-JSON response:', resultText.slice(0, 200));
-    throw new Error('Failed to analyze asthma relation');
-  }
-
-  console.log('[Asthma Analysis] Completed:', {
-    highRiskCount: parsed.asthma_high_risk?.length || 0,
-    mediumRiskCount: parsed.asthma_medium_risk?.length || 0,
+    asthmaHighRisk: parsed.asthma_high_risk?.length || 0,
+    asthmaMediumRisk: parsed.asthma_medium_risk?.length || 0,
     totalPositive: parsed.total_positive,
     asthmaRelated: parsed.asthma_related,
     riskLevel: parsed.risk_level,
@@ -371,26 +343,22 @@ async function analyzeAsthmaRelation(allergyTestData) {
   return parsed;
 }
 
-// 통합 이미지 분석 함수 (3단계)
+// 통합 이미지 분석 함수 (2단계)
 async function analyzeAllergyTestImage(imageUrl) {
   try {
-    console.log('[Allergy Test Analysis] Starting 3-step analysis...');
+    console.log('[Allergy Test Analysis] Starting 2-step analysis...');
 
     // 1단계: 텍스트 추출
     const extractedText = await extractTextFromImage(imageUrl);
 
-    // 2단계: 검사 결과 파싱
-    const allergyTestData = await parseAllergyTestResults(extractedText);
-
-    // 3단계: 천식 관련성 분석
-    const asthmaAnalysis = await analyzeAsthmaRelation(allergyTestData);
+    // 2단계: 검사 결과 분석 (통합)
+    const analysisResult = await parseAllergyTestResults(extractedText);
 
     console.log('[Allergy Test Analysis] All steps completed successfully');
 
     return {
       extractedText,
-      allergyTestData,
-      asthmaAnalysis,
+      analysisResult,
     };
   } catch (error) {
     console.error('[Allergy Test Analysis] Error:', error);
@@ -440,5 +408,4 @@ module.exports = {
   analyzeAllergyTestImage,
   extractTextFromImage,
   parseAllergyTestResults,
-  analyzeAsthmaRelation,
 };

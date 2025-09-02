@@ -58,13 +58,18 @@ app.post('/skill', async (req, res) => {
         const waitMessage = await generateAllergyTestWaitMessage();
         const waitResponse = createCallbackWaitResponse(waitMessage);
 
-        // 백그라운드에서 새로운 3단계 이미지 분석 처리
+        // 백그라운드에서 새로운 2단계 이미지 분석 처리
         processAllergyTestAnalysis(userKey, mediaUrl, userData, callbackUrl).catch((error) => {
           console.error('[Background Allergy Test Analysis Error]', error);
+
+          // 타임아웃 에러인지 확인
+          let errorMessage = '알레르기 검사결과지 분석 중 오류가 발생했어요. 다시 시도해주세요.';
+          if (error.message && error.message.includes('timed out')) {
+            errorMessage = '분석 시간이 초과되었습니다. 다시 시도해주세요.';
+          }
+
           // 에러 시에도 콜백으로 에러 메시지 전송
-          const errorResponse = createResponseFormat(
-            '알레르기 검사결과지 분석 중 오류가 발생했어요. 다시 시도해주세요.'
-          );
+          const errorResponse = createResponseFormat(errorMessage);
           fetch(callbackUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -125,9 +130,9 @@ async function processAllergyTestAnalysis(userKey, mediaUrl, userData, callbackU
   try {
     console.log(`[Background Allergy Test Analysis] Starting for user: ${userKey}`);
 
-    // 새로운 3단계 분석 실행
+    // 새로운 2단계 분석 실행
     const analysisResult = await analyzeAllergyTestImage(mediaUrl);
-    const { allergyTestData, asthmaAnalysis } = analysisResult;
+    const { analysisResult: allergyTestData } = analysisResult;
 
     const history = Array.isArray(userData?.history) ? [...userData.history] : [];
     const extracted =
@@ -159,38 +164,38 @@ async function processAllergyTestAnalysis(userKey, mediaUrl, userData, callbackU
     } 결과 분석 완료**\n\n`;
 
     analysisSummary += `🔍 **검사 개요:**\n`;
-    analysisSummary += `• 양성 반응: ${asthmaAnalysis.total_positive || 0}개\n`;
+    analysisSummary += `• 양성 반응: ${allergyTestData.total_positive || 0}개\n`;
 
-    if (asthmaAnalysis.asthma_related > 0) {
-      analysisSummary += `• 천식 관련 항목: ${asthmaAnalysis.asthma_related}개\n`;
+    if (allergyTestData.asthma_related > 0) {
+      analysisSummary += `• 천식 관련 항목: ${allergyTestData.asthma_related}개\n`;
     }
 
     if (allergyTestData.total_ige) {
       analysisSummary += `• 총 IgE: ${allergyTestData.total_ige}\n`;
     }
 
-    // 천식 관련 항목 요약 (단순화)
+    // 천식 관련 항목 요약 (통합된 구조)
     if (
-      asthmaAnalysis.asthma_high_risk?.length > 0 ||
-      asthmaAnalysis.asthma_medium_risk?.length > 0
+      allergyTestData.asthma_high_risk?.length > 0 ||
+      allergyTestData.asthma_medium_risk?.length > 0
     ) {
       analysisSummary += `\n⚠️ **천식 관련 알레르기 항목:**\n`;
 
-      if (asthmaAnalysis.asthma_high_risk?.length > 0) {
+      if (allergyTestData.asthma_high_risk?.length > 0) {
         analysisSummary += `\n🔴 **고위험:**\n`;
-        asthmaAnalysis.asthma_high_risk.forEach((item) => {
+        allergyTestData.asthma_high_risk.forEach((item) => {
           analysisSummary += `• ${item}\n`;
         });
       }
 
-      if (asthmaAnalysis.asthma_medium_risk?.length > 0) {
+      if (allergyTestData.asthma_medium_risk?.length > 0) {
         analysisSummary += `\n🟡 **중위험:**\n`;
-        asthmaAnalysis.asthma_medium_risk.forEach((item) => {
+        allergyTestData.asthma_medium_risk.forEach((item) => {
           analysisSummary += `• ${item}\n`;
         });
       }
 
-      analysisSummary += `\n💡 **천식 위험도:** ${asthmaAnalysis.risk_level}\n`;
+      analysisSummary += `\n💡 **천식 위험도:** ${allergyTestData.risk_level}\n`;
     }
 
     analysisSummary += `\n이 정보가 증상 분석에 반영됩니다. 다른 증상에 대해서도 말씀해 주세요.`;
