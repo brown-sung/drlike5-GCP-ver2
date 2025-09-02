@@ -230,6 +230,11 @@ async function generateAllergyTestWaitMessage() {
 
 // 1단계: 이미지에서 텍스트 추출
 async function extractTextFromImage(imageUrl) {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY environment variable is not set.');
+  }
+
   const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
   const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
   if (!ALLOWED_MIME_TYPES.has(mimeType)) {
