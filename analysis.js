@@ -91,6 +91,59 @@ function formatDetailedResult(extractedData) {
 
   let result = '📋 상세 분석 결과\n\n';
 
+  // 알레르기 검사 결과가 있으면 별도 섹션으로 표시
+  if (extractedData['알레르기 검사 결과']) {
+    try {
+      const allergyTestData = JSON.parse(extractedData['알레르기 검사 결과']);
+      result += '🔬 **알레르기 검사 결과 상세**\n\n';
+
+      if (allergyTestData.test_type) {
+        result += `**검사 종류:** ${allergyTestData.test_type}\n`;
+      }
+
+      if (allergyTestData.total_ige) {
+        result += `**총 IgE:** ${allergyTestData.total_ige}\n\n`;
+      }
+
+      // 공중 알레르겐 상세
+      if (allergyTestData.airborne_allergens && allergyTestData.airborne_allergens.length > 0) {
+        result += '🌬️ **공중 알레르겐:**\n';
+        allergyTestData.airborne_allergens.forEach((item) => {
+          const status =
+            item.result === '양성' || (item.class && parseInt(item.class) >= 1) ? '✅' : '❌';
+          result += `${status} ${item.name} (${item.code}) - Class ${item.class}, ${item.value} IU/mL\n`;
+        });
+        result += '\n';
+      }
+
+      // 식품 알레르겐 상세
+      if (allergyTestData.food_allergens && allergyTestData.food_allergens.length > 0) {
+        result += '🍽️ **식품 알레르겐:**\n';
+        allergyTestData.food_allergens.forEach((item) => {
+          const status =
+            item.result === '양성' || (item.class && parseInt(item.class) >= 1) ? '✅' : '❌';
+          result += `${status} ${item.name} (${item.code}) - Class ${item.class}, ${item.value} IU/mL\n`;
+        });
+        result += '\n';
+      }
+
+      // 기타 알레르겐 상세
+      if (allergyTestData.other_allergens && allergyTestData.other_allergens.length > 0) {
+        result += '🔍 **기타 알레르겐:**\n';
+        allergyTestData.other_allergens.forEach((item) => {
+          const status =
+            item.result === '양성' || (item.class && parseInt(item.class) >= 1) ? '✅' : '❌';
+          result += `${status} ${item.name} (${item.code}) - Class ${item.class}, ${item.value} IU/mL\n`;
+        });
+        result += '\n';
+      }
+
+      result += '---\n\n';
+    } catch (e) {
+      console.warn('Failed to parse allergy test data:', e);
+    }
+  }
+
   Object.entries(sections).forEach(([sectionName, fields]) => {
     const sectionData = fields
       .map((field) => {

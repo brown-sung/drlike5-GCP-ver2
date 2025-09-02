@@ -8,6 +8,9 @@ const {
   SYSTEM_PROMPT_ANALYZE_COMPREHENSIVE,
   SYSTEM_PROMPT_WAIT_MESSAGE,
   SYSTEM_PROMPT_ANALYZE_IMAGE_ALLERGY,
+  SYSTEM_PROMPT_EXTRACT_TEXT_FROM_IMAGE,
+  SYSTEM_PROMPT_PARSE_ALLERGY_TEST,
+  SYSTEM_PROMPT_ANALYZE_ASTHMA_RELATION,
 } = require('./prompts');
 
 // --- 클라이언트 초기화 ---
@@ -294,6 +297,162 @@ async function generateWaitMessage(history) {
   }
 }
 
+// 알레르기 검사결과지 전용 대기 메시지 생성
+async function generateAllergyTestWaitMessage() {
+  return '알레르기 검사결과지를 올려주셨네요. 잠시만 기다리면 살펴보겠습니다.';
+}
+
+// 1단계: 이미지에서 텍스트 추출
+async function extractTextFromImage(imageUrl) {
+  const { base64, mimeType } = await fetchImageAsBase64(imageUrl);
+  const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+    throw new Error(
+      `Unsupported MIME type for Gemini Vision: ${mimeType}. Please upload JPEG, PNG, or WEBP images.`
+    );
+  }
+
+  console.log('[Text Extraction] Requesting text extraction...');
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: SYSTEM_PROMPT_EXTRACT_TEXT_FROM_IMAGE },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          topK: 1,
+          topP: 0.8,
+          maxOutputTokens: 8192,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gemini Vision API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error('No text extracted from image');
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    console.warn('[Text Extraction] Non-JSON response, using raw text');
+    parsed = { extracted_text: text };
+  }
+
+  console.log('[Text Extraction] Completed, text length:', parsed.extracted_text?.length || 0);
+  return parsed.extracted_text;
+}
+
+// 2단계: 텍스트를 검사 항목-결과 쌍으로 정제
+async function parseAllergyTestResults(extractedText) {
+  console.log('[Parse Allergy Test] Starting analysis...');
+
+  const resultText = await callGeminiWithApiKey(
+    SYSTEM_PROMPT_PARSE_ALLERGY_TEST,
+    extractedText,
+    'gemini-2.5-flash',
+    true,
+    8000
+  );
+
+  let parsed;
+  try {
+    parsed = JSON.parse(resultText);
+  } catch (e) {
+    console.warn('[Parse Allergy Test] Non-JSON response:', resultText.slice(0, 200));
+    throw new Error('Failed to parse allergy test results');
+  }
+
+  console.log('[Parse Allergy Test] Completed:', {
+    testType: parsed.test_type,
+    totalIge: parsed.total_ige,
+    airborneCount: parsed.airborne_allergens?.length || 0,
+    foodCount: parsed.food_allergens?.length || 0,
+    otherCount: parsed.other_allergens?.length || 0,
+  });
+
+  return parsed;
+}
+
+// 3단계: 천식 관련성 분석
+async function analyzeAsthmaRelation(allergyTestData) {
+  console.log('[Asthma Analysis] Starting analysis...');
+
+  const resultText = await callGeminiWithApiKey(
+    SYSTEM_PROMPT_ANALYZE_ASTHMA_RELATION,
+    JSON.stringify(allergyTestData, null, 2),
+    'gemini-2.5-flash',
+    true,
+    4000
+  );
+
+  let parsed;
+  try {
+    parsed = JSON.parse(resultText);
+  } catch (e) {
+    console.warn('[Asthma Analysis] Non-JSON response:', resultText.slice(0, 200));
+    throw new Error('Failed to analyze asthma relation');
+  }
+
+  console.log('[Asthma Analysis] Completed:', {
+    highRiskCount: parsed.asthma_related_high_risk?.length || 0,
+    mediumRiskCount: parsed.asthma_related_medium_risk?.length || 0,
+    totalPositive: parsed.total_positive_count,
+    asthmaRelated: parsed.asthma_related_count,
+    riskAssessment: parsed.asthma_risk_assessment,
+  });
+
+  return parsed;
+}
+
+// 통합 이미지 분석 함수 (3단계)
+async function analyzeAllergyTestImage(imageUrl) {
+  try {
+    console.log('[Allergy Test Analysis] Starting 3-step analysis...');
+
+    // 1단계: 텍스트 추출
+    const extractedText = await extractTextFromImage(imageUrl);
+
+    // 2단계: 검사 결과 파싱
+    const allergyTestData = await parseAllergyTestResults(extractedText);
+
+    // 3단계: 천식 관련성 분석
+    const asthmaAnalysis = await analyzeAsthmaRelation(allergyTestData);
+
+    console.log('[Allergy Test Analysis] All steps completed successfully');
+
+    return {
+      extractedText,
+      allergyTestData,
+      asthmaAnalysis,
+    };
+  } catch (error) {
+    console.error('[Allergy Test Analysis] Error:', error);
+    throw error;
+  }
+}
+
 // 다음 질문 생성 함수 (API 키 방식)
 const generateNextQuestion = async (history, extracted_data) => {
   const context = `---대화 기록 시작---\n${history.join(
@@ -329,8 +488,13 @@ module.exports = {
   createAnalysisTask,
   archiveToBigQuery,
   generateWaitMessage,
+  generateAllergyTestWaitMessage,
   generateNextQuestion,
   analyzeConversation,
   resetUserData,
   analyzeAllergyFromImage,
+  analyzeAllergyTestImage,
+  extractTextFromImage,
+  parseAllergyTestResults,
+  analyzeAsthmaRelation,
 };

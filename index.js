@@ -7,7 +7,9 @@ const {
   resetUserData,
   generateNextQuestion,
   analyzeAllergyFromImage,
+  analyzeAllergyTestImage,
   generateWaitMessage,
+  generateAllergyTestWaitMessage,
 } = require('./services');
 const stateHandlers = require('./handlers');
 const {
@@ -53,16 +55,16 @@ app.post('/skill', async (req, res) => {
       }
 
       try {
-        // 즉시 대기 메시지 응답
-        const waitMessage = await generateWaitMessage(['사용자: [이미지 업로드]']);
+        // 즉시 대기 메시지 응답 (알레르기 검사결과지 전용)
+        const waitMessage = await generateAllergyTestWaitMessage();
         const waitResponse = createCallbackWaitResponse(waitMessage);
 
-        // 백그라운드에서 이미지 분석 처리
-        processImageAnalysis(userKey, mediaUrl, userData, callbackUrl).catch((error) => {
-          console.error('[Background Image Analysis Error]', error);
+        // 백그라운드에서 새로운 3단계 이미지 분석 처리
+        processAllergyTestAnalysis(userKey, mediaUrl, userData, callbackUrl).catch((error) => {
+          console.error('[Background Allergy Test Analysis Error]', error);
           // 에러 시에도 콜백으로 에러 메시지 전송
           const errorResponse = createResponseFormat(
-            '이미지 분석 중 오류가 발생했어요. 다시 시도해주세요.'
+            '알레르기 검사결과지 분석 중 오류가 발생했어요. 다시 시도해주세요.'
           );
           fetch(callbackUrl, {
             method: 'POST',
@@ -73,10 +75,14 @@ app.post('/skill', async (req, res) => {
 
         return res.status(200).json(waitResponse);
       } catch (e) {
-        console.error('[Image Analysis Setup Error]', e);
+        console.error('[Allergy Test Analysis Setup Error]', e);
         return res
           .status(200)
-          .json(createResponseFormat('이미지 분석 설정 중 문제가 발생했어요. 다시 시도해 주세요.'));
+          .json(
+            createResponseFormat(
+              '알레르기 검사결과지 분석 설정 중 문제가 발생했어요. 다시 시도해 주세요.'
+            )
+          );
       }
     }
 
@@ -115,13 +121,15 @@ app.post('/skill', async (req, res) => {
   }
 });
 
-// 백그라운드 이미지 분석 처리 함수
-async function processImageAnalysis(userKey, mediaUrl, userData, callbackUrl) {
+// 백그라운드 알레르기 검사결과지 분석 처리 함수 (3단계)
+async function processAllergyTestAnalysis(userKey, mediaUrl, userData, callbackUrl) {
   try {
-    console.log(`[Background Image Analysis] Starting for user: ${userKey}`);
-    const analysis = await analyzeAllergyFromImage(mediaUrl);
+    console.log(`[Background Allergy Test Analysis] Starting for user: ${userKey}`);
 
-    // 기존 데이터 병합
+    // 새로운 3단계 분석 실행
+    const analysisResult = await analyzeAllergyTestImage(mediaUrl);
+    const { allergyTestData, asthmaAnalysis } = analysisResult;
+
     const history = Array.isArray(userData?.history) ? [...userData.history] : [];
     const extracted =
       typeof userData?.extracted_data === 'object' && userData.extracted_data !== null
@@ -129,47 +137,92 @@ async function processImageAnalysis(userKey, mediaUrl, userData, callbackUrl) {
         : {};
 
     // 알레르기 정보 추출 및 저장
-    if (analysis.airborneAllergens && analysis.airborneAllergens.length > 0) {
-      extracted['공중 항원'] = 'Y';
-      extracted['공중 항원 상세'] = analysis.airborneAllergens.join(', ');
+    const allAllergens = [
+      ...(allergyTestData.airborne_allergens || []),
+      ...(allergyTestData.food_allergens || []),
+      ...(allergyTestData.other_allergens || []),
+    ];
+
+    const positiveAllergens = allAllergens.filter(
+      (item) => item.result === '양성' || (item.class && parseInt(item.class) >= 1)
+    );
+
+    if (positiveAllergens.length > 0) {
+      const airbornePositive = positiveAllergens.filter((item) =>
+        allergyTestData.airborne_allergens?.includes(item)
+      );
+      const foodPositive = positiveAllergens.filter((item) =>
+        allergyTestData.food_allergens?.includes(item)
+      );
+
+      if (airbornePositive.length > 0) {
+        extracted['공중 항원'] = 'Y';
+        extracted['공중 항원 상세'] = airbornePositive
+          .map((item) => `${item.name}(${item.class}, ${item.value})`)
+          .join(', ');
+      }
+
+      if (foodPositive.length > 0) {
+        extracted['식품 항원'] = 'Y';
+        extracted['식품 항원 상세'] = foodPositive
+          .map((item) => `${item.name}(${item.class}, ${item.value})`)
+          .join(', ');
+      }
     }
-    if (analysis.foodAllergens && analysis.foodAllergens.length > 0) {
-      extracted['식품 항원'] = 'Y';
-      extracted['식품 항원 상세'] = analysis.foodAllergens.join(', ');
+
+    if (allergyTestData.total_ige) {
+      extracted['총 IgE'] = allergyTestData.total_ige;
     }
-    if (analysis.totalIge) {
-      extracted['총 IgE'] = analysis.totalIge;
-    }
+
+    // 상세 검사 결과 저장 (상세 결과 보기용)
+    extracted['알레르기 검사 결과'] = JSON.stringify(allergyTestData);
 
     // 사용자에게 분석 결과 요약 메시지 생성
-    let analysisSummary = '업로드하신 알레르기 검사 결과를 분석했습니다.\n\n';
+    let analysisSummary = `📋 **${
+      allergyTestData.test_type || '알레르기 검사'
+    } 결과 분석 완료**\n\n`;
 
-    if (analysis.airborneAllergens.length > 0 || analysis.foodAllergens.length > 0) {
-      analysisSummary += '🔍 **검출된 알레르기 항원:**\n';
+    analysisSummary += `🔍 **검사 개요:**\n`;
+    analysisSummary += `• 총 검사 항목: ${allAllergens.length}개\n`;
+    analysisSummary += `• 양성 반응: ${
+      asthmaAnalysis.total_positive_count || positiveAllergens.length
+    }개\n`;
 
-      if (analysis.airborneAllergens.length > 0) {
-        analysisSummary += `\n🌬️ **공중 알레르겐:**\n${analysis.airborneAllergens
-          .map((item) => `• ${item}`)
-          .join('\n')}`;
-      }
-
-      if (analysis.foodAllergens.length > 0) {
-        analysisSummary += `\n🍽️ **식품 알레르겐:**\n${analysis.foodAllergens
-          .map((item) => `• ${item}`)
-          .join('\n')}`;
-      }
-
-      if (analysis.totalIge) {
-        analysisSummary += `\n📊 **총 IgE:** ${analysis.totalIge}`;
-      }
-
-      analysisSummary += '\n\n이 정보가 증상 분석에 반영됩니다.';
-    } else {
-      analysisSummary +=
-        '검사 결과에서 특별한 알레르기 반응은 확인되지 않았습니다.\n\n다른 증상에 대해 말씀해 주세요.';
+    if (asthmaAnalysis.asthma_related_count > 0) {
+      analysisSummary += `• 천식 관련 항목: ${asthmaAnalysis.asthma_related_count}개\n`;
     }
 
-    history.push('사용자: [이미지 업로드]');
+    if (allergyTestData.total_ige) {
+      analysisSummary += `• 총 IgE: ${allergyTestData.total_ige}\n`;
+    }
+
+    // 천식 관련 항목 요약
+    if (
+      asthmaAnalysis.asthma_related_high_risk?.length > 0 ||
+      asthmaAnalysis.asthma_related_medium_risk?.length > 0
+    ) {
+      analysisSummary += `\n⚠️ **천식 관련 알레르기 항목:**\n`;
+
+      if (asthmaAnalysis.asthma_related_high_risk?.length > 0) {
+        analysisSummary += `\n🔴 **고위험:**\n`;
+        asthmaAnalysis.asthma_related_high_risk.forEach((item) => {
+          analysisSummary += `• ${item.name} (${item.class}, ${item.value})\n`;
+        });
+      }
+
+      if (asthmaAnalysis.asthma_related_medium_risk?.length > 0) {
+        analysisSummary += `\n🟡 **중위험:**\n`;
+        asthmaAnalysis.asthma_related_medium_risk.forEach((item) => {
+          analysisSummary += `• ${item.name} (${item.class}, ${item.value})\n`;
+        });
+      }
+
+      analysisSummary += `\n💡 **천식 위험도:** ${asthmaAnalysis.asthma_risk_assessment}\n`;
+    }
+
+    analysisSummary += `\n이 정보가 증상 분석에 반영됩니다. 다른 증상에 대해서도 말씀해 주세요.`;
+
+    history.push('사용자: [알레르기 검사결과지 업로드]');
     history.push(`챗봇: ${analysisSummary}`);
 
     await setFirestoreData(userKey, {
@@ -188,9 +241,9 @@ async function processImageAnalysis(userKey, mediaUrl, userData, callbackUrl) {
       body: JSON.stringify(finalResponse),
     });
 
-    console.log(`[Background Image Analysis] Completed for user: ${userKey}`);
+    console.log(`[Background Allergy Test Analysis] Completed for user: ${userKey}`);
   } catch (error) {
-    console.error(`[Background Image Analysis] Error for user: ${userKey}`, error);
+    console.error(`[Background Allergy Test Analysis] Error for user: ${userKey}`, error);
     throw error;
   }
 }
