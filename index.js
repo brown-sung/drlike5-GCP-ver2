@@ -7,9 +7,14 @@ const {
   resetUserData,
   generateNextQuestion,
   analyzeAllergyFromImage,
+  generateWaitMessage,
 } = require('./services');
 const stateHandlers = require('./handlers');
-const { createResponseFormat, createResultCardResponse } = require('./utils'); // ★ createResultCardResponse 임포트
+const {
+  createResponseFormat,
+  createResultCardResponse,
+  createCallbackWaitResponse,
+} = require('./utils'); // ★ createResultCardResponse 임포트
 const { judgeAsthma, formatResult } = require('./analysis');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
@@ -41,45 +46,37 @@ app.post('/skill', async (req, res) => {
 
     // 이미지 업로드 처리 분기 (카카오 userRequest.params.media.url)
     if (mediaUrl && mediaType === 'image') {
+      if (!callbackUrl) {
+        return res
+          .status(400)
+          .json(createResponseFormat('콜백 URL이 없습니다. 다시 시도해주세요.'));
+      }
+
       try {
-        const analysis = await analyzeAllergyFromImage(mediaUrl);
+        // 즉시 대기 메시지 응답
+        const waitMessage = await generateWaitMessage(['사용자: [이미지 업로드]']);
+        const waitResponse = createCallbackWaitResponse(waitMessage);
 
-        // 기존 데이터 병합
-        const history = Array.isArray(userData?.history) ? [...userData.history] : [];
-        const extracted =
-          typeof userData?.extracted_data === 'object' && userData.extracted_data !== null
-            ? { ...userData.extracted_data }
-            : {};
-
-        if (analysis.airborneAllergens && analysis.airborneAllergens.length > 0) {
-          extracted['공중 항원'] = 'Y';
-          extracted['공중 항원 상세'] = analysis.airborneAllergens.join(', ');
-        }
-        if (analysis.foodAllergens && analysis.foodAllergens.length > 0) {
-          extracted['식품 항원'] = 'Y';
-          extracted['식품 항원 상세'] = analysis.foodAllergens.join(', ');
-        }
-
-        history.push('사용자: [이미지 업로드]');
-        history.push('챗봇: 업로드하신 이미지에서 알레르기 관련 정보를 반영했습니다.');
-
-        await setFirestoreData(userKey, {
-          state: userData?.state || 'COLLECTING',
-          history,
-          extracted_data: extracted,
+        // 백그라운드에서 이미지 분석 처리
+        processImageAnalysis(userKey, mediaUrl, userData, callbackUrl).catch((error) => {
+          console.error('[Background Image Analysis Error]', error);
+          // 에러 시에도 콜백으로 에러 메시지 전송
+          const errorResponse = createResponseFormat(
+            '이미지 분석 중 오류가 발생했어요. 다시 시도해주세요.'
+          );
+          fetch(callbackUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(errorResponse),
+          }).catch((err) => console.error('Failed to send error callback:', err));
         });
 
-        const nextQuestion = await generateNextQuestion(history, extracted);
-        return res.status(200).json(createResponseFormat(nextQuestion));
+        return res.status(200).json(waitResponse);
       } catch (e) {
-        console.error('[Image Analysis Error]', e);
+        console.error('[Image Analysis Setup Error]', e);
         return res
           .status(200)
-          .json(
-            createResponseFormat(
-              '이미지를 해석하는 중 문제가 발생했어요. 다른 이미지로 다시 시도해 주세요.'
-            )
-          );
+          .json(createResponseFormat('이미지 분석 설정 중 문제가 발생했어요. 다시 시도해 주세요.'));
       }
     }
 
@@ -117,6 +114,54 @@ app.post('/skill', async (req, res) => {
       .json(createResponseFormat('시스템에 오류가 발생했어요. 잠시 후 다시 시도해주세요.'));
   }
 });
+
+// 백그라운드 이미지 분석 처리 함수
+async function processImageAnalysis(userKey, mediaUrl, userData, callbackUrl) {
+  try {
+    console.log(`[Background Image Analysis] Starting for user: ${userKey}`);
+    const analysis = await analyzeAllergyFromImage(mediaUrl);
+
+    // 기존 데이터 병합
+    const history = Array.isArray(userData?.history) ? [...userData.history] : [];
+    const extracted =
+      typeof userData?.extracted_data === 'object' && userData.extracted_data !== null
+        ? { ...userData.extracted_data }
+        : {};
+
+    if (analysis.airborneAllergens && analysis.airborneAllergens.length > 0) {
+      extracted['공중 항원'] = 'Y';
+      extracted['공중 항원 상세'] = analysis.airborneAllergens.join(', ');
+    }
+    if (analysis.foodAllergens && analysis.foodAllergens.length > 0) {
+      extracted['식품 항원'] = 'Y';
+      extracted['식품 항원 상세'] = analysis.foodAllergens.join(', ');
+    }
+
+    history.push('사용자: [이미지 업로드]');
+    history.push('챗봇: 업로드하신 이미지에서 알레르기 관련 정보를 반영했습니다.');
+
+    await setFirestoreData(userKey, {
+      state: userData?.state || 'COLLECTING',
+      history,
+      extracted_data: extracted,
+    });
+
+    const nextQuestion = await generateNextQuestion(history, extracted);
+
+    // 콜백으로 최종 응답 전송
+    const finalResponse = createResponseFormat(nextQuestion);
+    await fetch(callbackUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(finalResponse),
+    });
+
+    console.log(`[Background Image Analysis] Completed for user: ${userKey}`);
+  } catch (error) {
+    console.error(`[Background Image Analysis] Error for user: ${userKey}`, error);
+    throw error;
+  }
+}
 
 app.post('/process-analysis-callback', async (req, res) => {
   const { userKey, history, callbackUrl } = req.body;
