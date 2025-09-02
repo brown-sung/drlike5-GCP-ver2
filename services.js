@@ -216,7 +216,21 @@ async function generateWaitMessage(history) {
       true,
       3800
     );
-    return JSON.parse(resultText).wait_text;
+
+    // JSON 파싱을 더 안전하게 처리
+    let parsed;
+    try {
+      parsed = JSON.parse(resultText);
+    } catch (parseError) {
+      console.warn('JSON parsing failed, trying to extract text directly:', parseError.message);
+      // JSON이 아닌 경우 직접 텍스트 반환
+      return (
+        resultText.replace(/^["']|["']$/g, '').trim() ||
+        '네, 말씀해주신 내용을 분석하고 있어요. 잠시만 기다려주세요! 🤖'
+      );
+    }
+
+    return parsed.wait_text || '네, 말씀해주신 내용을 분석하고 있어요. 잠시만 기다려주세요! 🤖';
   } catch (error) {
     console.warn('Wait message generation failed. Using default.', error.message);
     return '네, 말씀해주신 내용을 분석하고 있어요. 잠시만 기다려주세요! 🤖';

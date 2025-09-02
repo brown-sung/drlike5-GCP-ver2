@@ -105,35 +105,20 @@ function formatDetailedResult(extractedData) {
         result += `**총 IgE:** ${allergyTestData.total_ige}\n\n`;
       }
 
-      // 공중 알레르겐 상세
+      // 공중 알레르겐 상세 (단순화된 구조)
       if (allergyTestData.airborne_allergens && allergyTestData.airborne_allergens.length > 0) {
         result += '🌬️ **공중 알레르겐:**\n';
         allergyTestData.airborne_allergens.forEach((item) => {
-          const status =
-            item.result === '양성' || (item.class && parseInt(item.class) >= 1) ? '✅' : '❌';
-          result += `${status} ${item.name} (${item.code}) - Class ${item.class}, ${item.value} IU/mL\n`;
+          result += `✅ ${item}\n`;
         });
         result += '\n';
       }
 
-      // 식품 알레르겐 상세
+      // 식품 알레르겐 상세 (단순화된 구조)
       if (allergyTestData.food_allergens && allergyTestData.food_allergens.length > 0) {
         result += '🍽️ **식품 알레르겐:**\n';
         allergyTestData.food_allergens.forEach((item) => {
-          const status =
-            item.result === '양성' || (item.class && parseInt(item.class) >= 1) ? '✅' : '❌';
-          result += `${status} ${item.name} (${item.code}) - Class ${item.class}, ${item.value} IU/mL\n`;
-        });
-        result += '\n';
-      }
-
-      // 기타 알레르겐 상세
-      if (allergyTestData.other_allergens && allergyTestData.other_allergens.length > 0) {
-        result += '🔍 **기타 알레르겐:**\n';
-        allergyTestData.other_allergens.forEach((item) => {
-          const status =
-            item.result === '양성' || (item.class && parseInt(item.class) >= 1) ? '✅' : '❌';
-          result += `${status} ${item.name} (${item.code}) - Class ${item.class}, ${item.value} IU/mL\n`;
+          result += `✅ ${item}\n`;
         });
         result += '\n';
       }
