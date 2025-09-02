@@ -304,7 +304,7 @@ async function parseAllergyTestResults(extractedText) {
     extractedText,
     'gemini-2.5-flash',
     true,
-    8000
+    30000
   );
 
   let parsed;
@@ -335,7 +335,7 @@ async function analyzeAsthmaRelation(allergyTestData) {
     JSON.stringify(allergyTestData, null, 2),
     'gemini-2.5-flash',
     true,
-    4000
+    30000
   );
 
   let parsed;
