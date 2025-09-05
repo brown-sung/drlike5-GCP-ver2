@@ -21,6 +21,39 @@ const AFFIRMATIVE_PHRASES = [
   '추가할 내용이 있어요',
 ];
 
+// 한글 초성체 (줄임말) 처리
+const KOREAN_INITIALS = {
+  // 긍정 및 동의
+  ㅇ: '응',
+  ㅇㅇ: '응응',
+  ㅇㅈ: '인정',
+  ㅇㅇㅈ: '어 인정',
+  ㅇㅋ: '오케이',
+  ㄱㅅ: '감사',
+  ㄳ: '감사',
+  ㄱㄹ: '그래',
+  ㄱㅊ: '괜찮아',
+  ㅊㅊ: '추천',
+  ㅍㅇㅌ: '파이팅',
+  // 부정 및 반대
+  ㄴㄴ: '노노',
+  ㄴㅇㅈ: '노인정',
+  ㄴㄷ: '노답',
+  ㄲㅈ: '꺼져',
+  ㅇㅉ: '어쩔',
+  ㅇㅉㄹㄱ: '어쩌라고',
+};
+
+// 초성체를 한글로 변환하는 함수
+const convertInitialsToKorean = (text) => {
+  let convertedText = text;
+  for (const [initial, korean] of Object.entries(KOREAN_INITIALS)) {
+    const regex = new RegExp(`\\b${initial}\\b`, 'g');
+    convertedText = convertedText.replace(regex, korean);
+  }
+  return convertedText;
+};
+
 const ALL_SYMPTOM_FIELDS = [
   '복용중 약',
   '기존 진단명',
@@ -106,6 +139,11 @@ const SYSTEM_PROMPT_GENERATE_QUESTION = `
 10. 세션 종료 키워드 감지: 사용자가 "다시 검사하기", "천식일까요", "처음으로" 등을 말하면, 즉시 새로운 세션을 시작하세요. 기존 증상 정보는 무시하고 처음부터 다시 시작하세요.
 
 11. 무한루프 방지: 같은 질문을 3번 이상 반복하지 마세요. 사용자가 "없어요", "아니요" 등으로 명확히 답변한 증상에 대해서는 더 이상 질문하지 마세요.
+
+12. 한글 초성체 (줄임말) 인식: 사용자가 초성체를 사용하면 자동으로 한글로 해석하여 응답하세요.
+    - 긍정/동의: ㅇ(응), ㅇㅇ(응응), ㅇㅈ(인정), ㅇㅋ(오케이), ㄱㅅ(감사), ㄱㄹ(그래), ㄱㅊ(괜찮아), ㅊㅊ(추천), ㅍㅇㅌ(파이팅)
+    - 부정/반대: ㄴㄴ(노노), ㄴㅇㅈ(노인정), ㄴㄷ(노답), ㄲㅈ(꺼져), ㅇㅉ(어쩔), ㅇㅉㄹㄱ(어쩌라고)
+    - 예시: 사용자가 "ㅇㅇ"라고 하면 "응응"으로 해석하여 긍정적인 답변으로 처리하세요.
 `;
 
 const SYSTEM_PROMPT_WAIT_MESSAGE = `
@@ -170,6 +208,8 @@ JSON 형식:
 module.exports = {
   TERMINATION_PHRASES,
   AFFIRMATIVE_PHRASES,
+  KOREAN_INITIALS,
+  convertInitialsToKorean,
   ALL_SYMPTOM_FIELDS,
   SYSTEM_PROMPT_ANALYZE_COMPREHENSIVE,
   SYSTEM_PROMPT_GENERATE_QUESTION,

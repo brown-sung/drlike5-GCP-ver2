@@ -9,6 +9,7 @@ const {
   SYSTEM_PROMPT_WAIT_MESSAGE,
   SYSTEM_PROMPT_EXTRACT_TEXT_FROM_IMAGE,
   SYSTEM_PROMPT_PARSE_ALLERGY_TEST,
+  convertInitialsToKorean,
 } = require('./prompts');
 
 // --- 클라이언트 초기화 ---
@@ -389,7 +390,17 @@ async function analyzeAllergyTestImage(imageUrl) {
 
 // 다음 질문 생성 함수 (API 키 방식)
 const generateNextQuestion = async (history, extracted_data) => {
-  const context = `---대화 기록 시작---\n${history.join(
+  // 대화 기록에서 초성체를 한글로 변환
+  const convertedHistory = history.map((entry) => {
+    if (entry.startsWith('사용자: ')) {
+      const userMessage = entry.substring(4); // "사용자: " 제거
+      const convertedMessage = convertInitialsToKorean(userMessage);
+      return `사용자: ${convertedMessage}`;
+    }
+    return entry;
+  });
+
+  const context = `---대화 기록 시작---\n${convertedHistory.join(
     '\n'
   )}\n---대화 기록 끝---\n\n[현재까지 분석된 환자 정보]\n${JSON.stringify(
     extracted_data,
@@ -405,7 +416,17 @@ const generateNextQuestion = async (history, extracted_data) => {
 
 // 종합 분석 함수 (API 키 방식)
 const analyzeConversation = async (history) => {
-  const context = `다음은 분석할 대화록입니다:\n\n${history.join('\n')}`;
+  // 대화 기록에서 초성체를 한글로 변환
+  const convertedHistory = history.map((entry) => {
+    if (entry.startsWith('사용자: ')) {
+      const userMessage = entry.substring(4); // "사용자: " 제거
+      const convertedMessage = convertInitialsToKorean(userMessage);
+      return `사용자: ${convertedMessage}`;
+    }
+    return entry;
+  });
+
+  const context = `다음은 분석할 대화록입니다:\n\n${convertedHistory.join('\n')}`;
   const resultText = await callGeminiWithApiKey(
     SYSTEM_PROMPT_ANALYZE_COMPREHENSIVE,
     context,
