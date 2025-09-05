@@ -208,13 +208,20 @@ async function fetchImageAsBase64(imageUrl) {
 async function generateWaitMessage(history) {
   const context = `---대화 기록---\n${history.join('\n')}`;
   try {
-    const resultText = await callGeminiWithApiKey(
+    let resultText = await callGeminiWithApiKey(
       SYSTEM_PROMPT_WAIT_MESSAGE,
       context,
       'gemini-2.5-flash-lite',
       true,
       3800
     );
+
+    // 마크다운 코드 블록 제거
+    if (resultText.startsWith('```json') && resultText.endsWith('```')) {
+      resultText = resultText.substring(7, resultText.length - 3).trim();
+    } else if (resultText.startsWith('```') && resultText.endsWith('```')) {
+      resultText = resultText.substring(3, resultText.length - 3).trim();
+    }
 
     // JSON 파싱을 더 안전하게 처리
     let parsed;
@@ -291,9 +298,16 @@ async function extractTextFromImage(imageUrl) {
   }
 
   const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) {
     throw new Error('No text extracted from image');
+  }
+
+  // 마크다운 코드 블록 제거
+  if (text.startsWith('```json') && text.endsWith('```')) {
+    text = text.substring(7, text.length - 3).trim();
+  } else if (text.startsWith('```') && text.endsWith('```')) {
+    text = text.substring(3, text.length - 3).trim();
   }
 
   let parsed;
@@ -312,13 +326,20 @@ async function extractTextFromImage(imageUrl) {
 async function parseAllergyTestResults(extractedText) {
   console.log('[Allergy Test Analysis] Starting integrated analysis...');
 
-  const resultText = await callGeminiWithApiKey(
+  let resultText = await callGeminiWithApiKey(
     SYSTEM_PROMPT_PARSE_ALLERGY_TEST,
     extractedText,
     'gemini-2.5-flash',
     true,
     55000
   );
+
+  // 마크다운 코드 블록 제거
+  if (resultText.startsWith('```json') && resultText.endsWith('```')) {
+    resultText = resultText.substring(7, resultText.length - 3).trim();
+  } else if (resultText.startsWith('```') && resultText.endsWith('```')) {
+    resultText = resultText.substring(3, resultText.length - 3).trim();
+  }
 
   let parsed;
   try {
