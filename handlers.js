@@ -83,10 +83,14 @@ async function handlePostAnalysis(userKey, utterance, history, extracted_data) {
     return createResponseFormat(detailedResult, ['다시 검사하기']);
   }
 
-  // "다시 검사하기", "처음으로"는 index.js에서 INIT 상태로 처리
+  // 세션 리셋 키워드 감지 (다시 검사하기, 처음으로, 천식일까요)
   if (TERMINATION_PHRASES.some((phrase) => utterance.includes(phrase))) {
-    return handleTerminated(userKey, history, extracted_data);
+    console.log(`[Session Reset] user: ${userKey}, reason: ${utterance}`);
+    await resetUserData(userKey);
+    // 리셋 후 새로운 세션 시작
+    return handleInit(userKey, utterance);
   }
+
   // 그 외 다른 대답은 추가 증상으로 간주하고 다시 수집 시작
   return handleCollecting(userKey, utterance, history, extracted_data);
 }

@@ -1,5 +1,15 @@
 // 파일: prompts.js
-const TERMINATION_PHRASES = ['종료', '그만', '끝', '됐어', '이제 괜찮아', '아니요, 종료할게요'];
+const TERMINATION_PHRASES = [
+  '종료',
+  '그만',
+  '끝',
+  '됐어',
+  '이제 괜찮아',
+  '아니요, 종료할게요',
+  '다시 검사하기',
+  '처음으로',
+  '천식일까요',
+];
 const AFFIRMATIVE_PHRASES = [
   '네',
   '응',

@@ -94,12 +94,7 @@ app.post('/skill', async (req, res) => {
       return res.status(400).json(createResponseFormat('잘못된 요청입니다.'));
     }
 
-    // '다시 검사하기' 또는 '처음으로' 시 기존 데이터 완전 삭제
-    if (utterance === '다시 검사하기' || utterance === '처음으로') {
-      console.log(`[Session Reset] user: ${userKey}, reason: ${utterance}`);
-      await resetUserData(userKey);
-      userData = null;
-    }
+    // 세션 리셋은 handlers.js에서 통일된 방식으로 처리
 
     if (!userData) {
       userData = { state: 'INIT', history: [] };
