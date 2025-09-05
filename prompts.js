@@ -48,8 +48,17 @@ const KOREAN_INITIALS = {
 const convertInitialsToKorean = (text) => {
   let convertedText = text;
   for (const [initial, korean] of Object.entries(KOREAN_INITIALS)) {
-    const regex = new RegExp(`\\b${initial}\\b`, 'g');
-    convertedText = convertedText.replace(regex, korean);
+    // 한글 초성체는 단독으로 사용되므로 정확한 매칭 필요
+    const regex = new RegExp(`^${initial}$|\\s${initial}$|^${initial}\\s|\\s${initial}\\s`, 'g');
+    convertedText = convertedText.replace(regex, (match) => {
+      if (match.startsWith(' ')) {
+        return ' ' + korean;
+      } else if (match.endsWith(' ')) {
+        return korean + ' ';
+      } else {
+        return korean;
+      }
+    });
   }
   return convertedText;
 };
@@ -144,6 +153,9 @@ const SYSTEM_PROMPT_GENERATE_QUESTION = `
     - 긍정/동의: ㅇ(응), ㅇㅇ(응응), ㅇㅈ(인정), ㅇㅋ(오케이), ㄱㅅ(감사), ㄱㄹ(그래), ㄱㅊ(괜찮아), ㅊㅊ(추천), ㅍㅇㅌ(파이팅)
     - 부정/반대: ㄴㄴ(노노), ㄴㅇㅈ(노인정), ㄴㄷ(노답), ㄲㅈ(꺼져), ㅇㅉ(어쩔), ㅇㅉㄹㄱ(어쩌라고)
     - 예시: 사용자가 "ㅇㅇ"라고 하면 "응응"으로 해석하여 긍정적인 답변으로 처리하세요.
+    - 중요: "분석해줘" 후에 "ㅇㅇ"나 "ㄴㄴ"가 나오면 분석 진행을 확정하는 것으로 이해하세요.
+
+13. 분석 진행 확정 처리: 사용자가 "분석해줘"라고 한 후, "ㅇㅇ", "ㄴㄴ", "없어요", "아니요" 등의 응답이 나오면 즉시 분석을 진행하세요. 더 이상 증상을 묻지 마세요.
 `;
 
 const SYSTEM_PROMPT_WAIT_MESSAGE = `

@@ -9,12 +9,19 @@ const {
   resetUserData,
 } = require('./services');
 const { createResponseFormat, createCallbackWaitResponse } = require('./utils');
-const { TERMINATION_PHRASES, AFFIRMATIVE_PHRASES, ALL_SYMPTOM_FIELDS } = require('./prompts');
+const {
+  TERMINATION_PHRASES,
+  AFFIRMATIVE_PHRASES,
+  ALL_SYMPTOM_FIELDS,
+  convertInitialsToKorean,
+} = require('./prompts');
 const { judgeAsthma, formatDetailedResult } = require('./analysis');
 
 async function handleInit(userKey, utterance) {
+  // 초성체 변환
+  const convertedUtterance = convertInitialsToKorean(utterance);
   const initialData = ALL_SYMPTOM_FIELDS.reduce((acc, field) => ({ ...acc, [field]: null }), {});
-  const newHistory = [`사용자: ${utterance}`];
+  const newHistory = [`사용자: ${convertedUtterance}`];
 
   const nextQuestion = await generateNextQuestion(newHistory, initialData);
   newHistory.push(`챗봇: ${nextQuestion}`);
@@ -28,21 +35,28 @@ async function handleInit(userKey, utterance) {
   return createResponseFormat(nextQuestion);
 }
 
-async function handleCollecting(userKey, utterance, history, extracted_data) {
+async function handleCollecting(userKey, utterance, history, extracted_data, callbackUrl) {
+  // 초성체 변환
+  const convertedUtterance = convertInitialsToKorean(utterance);
+
   // 사용자가 분석을 요청하는 키워드를 말했을 때
-  if (utterance.includes('분석해') || utterance.includes('결과')) {
+  if (convertedUtterance.includes('분석해') || convertedUtterance.includes('결과')) {
     await setFirestoreData(userKey, { state: 'CONFIRM_ANALYSIS' });
     return createResponseFormat(
       '알겠습니다. 그럼 지금까지 말씀해주신 내용을 바탕으로 분석을 진행해볼까요?'
     );
   }
 
-  // AI가 분석을 제안했는데 사용자가 동의했을 때
-  if (
-    AFFIRMATIVE_PHRASES.some((phrase) => utterance.includes(phrase)) &&
-    history[history.length - 1].includes('분석을 진행해볼까요?')
-  ) {
-    return handleConfirmAnalysis(userKey, utterance, history, extracted_data, callbackUrl); // callbackUrl이 필요하므로 index.js에서 전달받아야 함
+  // AI가 분석을 제안했는데 사용자가 동의했을 때 (초성체 포함)
+  const isAffirmative =
+    AFFIRMATIVE_PHRASES.some((phrase) => convertedUtterance.includes(phrase)) ||
+    ['응', '응응', '오케이', '그래', '괜찮아'].some((phrase) =>
+      convertedUtterance.includes(phrase)
+    ) ||
+    ['ㅇ', 'ㅇㅇ', 'ㅇㅋ', 'ㄱㄹ', 'ㄱㅊ'].some((phrase) => utterance.includes(phrase));
+
+  if (isAffirmative && history[history.length - 1].includes('분석을 진행해볼까요?')) {
+    return handleConfirmAnalysis(userKey, convertedUtterance, history, extracted_data, callbackUrl);
   }
 
   history.push(`사용자: ${utterance}`);
