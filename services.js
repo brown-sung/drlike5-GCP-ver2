@@ -393,7 +393,7 @@ const generateNextQuestion = async (history, extracted_data) => {
   // 대화 기록에서 초성체를 한글로 변환
   const convertedHistory = history.map((entry) => {
     if (entry.startsWith('사용자: ')) {
-      const userMessage = entry.substring(4); // "사용자: " 제거
+      const userMessage = entry.slice('사용자: '.length);
       const convertedMessage = convertInitialsToKorean(userMessage);
       return `사용자: ${convertedMessage}`;
     }
@@ -419,7 +419,7 @@ const analyzeConversation = async (history) => {
   // 대화 기록에서 초성체를 한글로 변환
   const convertedHistory = history.map((entry) => {
     if (entry.startsWith('사용자: ')) {
-      const userMessage = entry.substring(4); // "사용자: " 제거
+      const userMessage = entry.slice('사용자: '.length);
       const convertedMessage = convertInitialsToKorean(userMessage);
       return `사용자: ${convertedMessage}`;
     }
