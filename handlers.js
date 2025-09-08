@@ -60,17 +60,27 @@ async function handleCollecting(userKey, utterance, history, extracted_data, cal
   }
 
   history.push(`사용자: ${utterance}`);
-  const nextQuestion = await generateNextQuestion(history, extracted_data);
-  history.push(`챗봇: ${nextQuestion}`);
 
-  // AI가 분석을 제안했는지 확인하고 상태 변경
-  if (nextQuestion.includes('말씀하고 싶은 다른 증상')) {
-    await setFirestoreData(userKey, { state: 'CONFIRM_ANALYSIS', history });
-  } else {
+  try {
+    const nextQuestion = await generateNextQuestion(history, extracted_data);
+    history.push(`챗봇: ${nextQuestion}`);
+
+    // AI가 분석을 제안했는지 확인하고 상태 변경
+    if (nextQuestion.includes('말씀하고 싶은 다른 증상')) {
+      await setFirestoreData(userKey, { state: 'CONFIRM_ANALYSIS', history });
+    } else {
+      await setFirestoreData(userKey, { history });
+    }
+
+    return createResponseFormat(nextQuestion);
+  } catch (error) {
+    console.error('[Question Generation Error]', error);
+    // 에러 시 기본 질문 반환
+    const fallbackQuestion = '혹시 아이에게 다른 증상이 있으신가요?';
+    history.push(`챗봇: ${fallbackQuestion}`);
     await setFirestoreData(userKey, { history });
+    return createResponseFormat(fallbackQuestion);
   }
-
-  return createResponseFormat(nextQuestion);
 }
 
 async function handleConfirmAnalysis(userKey, utterance, history, extracted_data, callbackUrl) {

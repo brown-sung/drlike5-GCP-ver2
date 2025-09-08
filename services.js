@@ -425,13 +425,33 @@ const generateNextQuestion = async (history, extracted_data) => {
     null,
     2
   )}`;
-  return await callGeminiWithApiKey(
-    SYSTEM_PROMPT_GENERATE_QUESTION,
-    context,
-    'gemini-2.5-flash',
-    true,
-    8000
-  );
+  try {
+    const result = await callGeminiWithApiKey(
+      SYSTEM_PROMPT_GENERATE_QUESTION,
+      context,
+      'gemini-2.5-flash',
+      true,
+      3800 // 3.8초로 단축
+    );
+
+    // JSON 응답인 경우 텍스트만 추출
+    if (typeof result === 'string' && result.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(result);
+        return parsed.text || parsed.message || result;
+      } catch (e) {
+        return result;
+      }
+    }
+
+    return result;
+  } catch (error) {
+    if (error.message && error.message.includes('timed out')) {
+      // 타임아웃 시 대기 메시지 반환
+      return '잠시만 기다려주세요. 질문을 준비하고 있어요...';
+    }
+    throw error;
+  }
 };
 
 // 종합 분석 함수 (API 키 방식)
