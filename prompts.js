@@ -46,21 +46,17 @@ const KOREAN_INITIALS = {
 
 // 초성체를 한글로 변환하는 함수
 const convertInitialsToKorean = (text) => {
-  let convertedText = text;
+  if (!text || typeof text !== 'string') return text;
+  let converted = text;
+  // 문장부호 포함 경계 처리: 공백, 문장부호 앞뒤에서만 치환
+  const boundary = '[\\s.,!?~]';
   for (const [initial, korean] of Object.entries(KOREAN_INITIALS)) {
-    // 한글 초성체는 단독으로 사용되므로 정확한 매칭 필요
-    const regex = new RegExp(`^${initial}$|\\s${initial}$|^${initial}\\s|\\s${initial}\\s`, 'g');
-    convertedText = convertedText.replace(regex, (match) => {
-      if (match.startsWith(' ')) {
-        return ' ' + korean;
-      } else if (match.endsWith(' ')) {
-        return korean + ' ';
-      } else {
-        return korean;
-      }
-    });
+    const pattern = new RegExp(`(^|${boundary})(${initial})($|${boundary})`, 'g');
+    converted = converted.replace(pattern, (m, p1, _p2, p3) => `${p1 || ''}${korean}${p3 || ''}`);
+    // 전체가 초성체인 경우도 커버
+    if (converted === initial) converted = korean;
   }
-  return convertedText;
+  return converted.trim();
 };
 
 const ALL_SYMPTOM_FIELDS = [

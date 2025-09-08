@@ -400,7 +400,13 @@ const generateNextQuestion = async (history, extracted_data) => {
     return entry;
   });
 
-  const context = `---대화 기록 시작---\n${convertedHistory.join(
+  // 최근 반복 제어를 위해 히스토리 길이에 따라 요약 규칙 적용
+  const repeatCount = convertedHistory
+    .filter((e) => e.startsWith('챗봇:'))
+    .slice(-5)
+    .filter((q, i, arr) => i > 0 && q === arr[i - 1]).length;
+  const historyForContext = convertedHistory.length > 0 ? convertedHistory : history;
+  const context = `---대화 기록 시작---\n${historyForContext.join(
     '\n'
   )}\n---대화 기록 끝---\n\n[현재까지 분석된 환자 정보]\n${JSON.stringify(
     extracted_data,
