@@ -88,14 +88,25 @@ async function handleConfirmAnalysis(userKey, utterance, history, extracted_data
     return createResponseFormat('오류: 콜백 URL이 없습니다. 다시 시도해주세요.');
   }
 
-  if (AFFIRMATIVE_PHRASES.some((phrase) => utterance.includes(phrase))) {
-    history.push(`사용자: ${utterance}`);
+  // 초성체 변환 적용
+  const convertedUtterance = convertInitialsToKorean(utterance);
+
+  // 긍정 응답 체크 (초성체 포함)
+  const isAffirmative =
+    AFFIRMATIVE_PHRASES.some((phrase) => convertedUtterance.includes(phrase)) ||
+    ['응', '응응', '오케이', '그래', '괜찮아'].some((phrase) =>
+      convertedUtterance.includes(phrase)
+    ) ||
+    ['ㅇ', 'ㅇㅇ', 'ㅇㅋ', 'ㄱㄹ', 'ㄱㅊ'].some((phrase) => utterance.includes(phrase));
+
+  if (isAffirmative) {
+    history.push(`사용자: ${convertedUtterance}`);
     const waitMessage = await generateWaitMessage(history);
     await createAnalysisTask({ userKey, history, extracted_data, callbackUrl });
     return createCallbackWaitResponse(waitMessage);
   }
 
-  history.push(`사용자: ${utterance}`);
+  history.push(`사용자: ${convertedUtterance}`);
   await setFirestoreData(userKey, { state: 'COLLECTING' });
   return createResponseFormat('알겠습니다. 더 말씀하고 싶은 증상이 있으신가요?');
 }

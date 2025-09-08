@@ -238,6 +238,10 @@ app.post('/process-analysis-callback', async (req, res) => {
 
     // ★★★ simpleText 대신 basicCard 형식으로 최종 응답 생성 ★★★
     finalResponse = createResultCardResponse(mainText, quickReplies, judgement.possibility);
+    console.log(
+      `[Callback Response] user: ${userKey}, response:`,
+      JSON.stringify(finalResponse, null, 2)
+    );
 
     await setFirestoreData(userKey, {
       state: 'POST_ANALYSIS',
@@ -251,11 +255,26 @@ app.post('/process-analysis-callback', async (req, res) => {
     finalResponse = createResponseFormat(errorText, ['다시 검사하기']);
   }
 
-  await fetch(callbackUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(finalResponse),
-  }).catch((err) => console.error('Failed to send callback to Kakao:', err));
+  try {
+    console.log(`[Callback Sending] user: ${userKey}, callbackUrl: ${callbackUrl}`);
+    const callbackResponse = await fetch(callbackUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(finalResponse),
+    });
+
+    if (!callbackResponse.ok) {
+      console.error(
+        `[Callback Failed] Status: ${
+          callbackResponse.status
+        }, Response: ${await callbackResponse.text()}`
+      );
+    } else {
+      console.log(`[Callback Success] user: ${userKey}`);
+    }
+  } catch (err) {
+    console.error(`[Callback Error] user: ${userKey}`, err);
+  }
 
   return res.status(200).send('Callback job processed.');
 });
