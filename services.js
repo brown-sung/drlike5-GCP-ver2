@@ -400,20 +400,38 @@ const generateNextQuestion = async (history, extracted_data) => {
     return entry;
   });
 
-  // 최근 반복 제어를 위해 히스토리 길이에 따라 요약 규칙 적용
-  const repeatCount = convertedHistory
-    .filter((e) => e.startsWith('챗봇:'))
-    .slice(-5)
-    .filter((q, i, arr) => i > 0 && q === arr[i - 1]).length;
-  const historyForContext = convertedHistory.length > 0 ? convertedHistory : history;
-  const context = `---대화 기록 시작---\n${historyForContext.join(
+  // 최근 10턴만 사용하여 컨텍스트 길이 제한
+  const recentHistory = convertedHistory.slice(-10);
+
+  // 반복 질문 방지: 최근 3턴에서 같은 질문이 있는지 확인
+  const recentQuestions = recentHistory
+    .filter((entry) => entry.startsWith('챗봇:'))
+    .slice(-3)
+    .map((entry) => entry.replace('챗봇: ', ''));
+
+  const hasRepeatedQuestion =
+    recentQuestions.length >= 2 &&
+    recentQuestions[recentQuestions.length - 1] === recentQuestions[recentQuestions.length - 2];
+
+  // 반복 질문이 있으면 분석 제안으로 전환
+  if (hasRepeatedQuestion) {
+    return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
+  }
+
+  const context = `---최근 대화 기록---\n${recentHistory.join(
     '\n'
   )}\n---대화 기록 끝---\n\n[현재까지 분석된 환자 정보]\n${JSON.stringify(
     extracted_data,
     null,
     2
   )}`;
-  return await callGeminiWithApiKey(SYSTEM_PROMPT_GENERATE_QUESTION, context, 'gemini-2.5-flash');
+  return await callGeminiWithApiKey(
+    SYSTEM_PROMPT_GENERATE_QUESTION,
+    context,
+    'gemini-2.5-flash',
+    true,
+    8000
+  );
 };
 
 // 종합 분석 함수 (API 키 방식)
