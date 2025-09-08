@@ -246,7 +246,7 @@ async function generateWaitMessage(history) {
 
 // 알레르기 검사결과지 전용 대기 메시지 생성
 async function generateAllergyTestWaitMessage() {
-  return '알레르기 검사결과지를 올려주셨네요. 잠시만 기다리면 살펴보겠습니다.';
+  return '알레르기 검사결과지를 올려주셨네요. 잠시만 기다시리면 살펴보겠습니다.';
 }
 
 // 1단계: 이미지에서 텍스트 추출
@@ -413,11 +413,7 @@ const generateNextQuestion = async (history, extracted_data) => {
     null,
     2
   )}`;
-  return await callGeminiWithApiKey(
-    SYSTEM_PROMPT_GENERATE_QUESTION,
-    context,
-    'gemini-2.5-flash-lite'
-  );
+  return await callGeminiWithApiKey(SYSTEM_PROMPT_GENERATE_QUESTION, context, 'gemini-2.5-flash');
 };
 
 // 종합 분석 함수 (API 키 방식)
