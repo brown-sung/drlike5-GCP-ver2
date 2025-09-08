@@ -223,36 +223,69 @@ async function processAllergyTestAnalysis(userKey, mediaUrl, userData, callbackU
 
 app.post('/process-analysis-callback', async (req, res) => {
   const { userKey, history, callbackUrl } = req.body;
+
+  console.log(`[Callback Start] user: ${userKey}, callbackUrl: ${callbackUrl}`);
+  console.log(
+    `[Callback History] user: ${userKey}, history length: ${history ? history.length : 0}`
+  );
+
   if (!userKey || !history || !callbackUrl) {
-    console.error('Invalid callback request:', req.body);
+    console.error('[Callback Error] Invalid request:', {
+      userKey: !!userKey,
+      history: !!history,
+      callbackUrl: !!callbackUrl,
+    });
     return res.status(400).send('Bad Request: Missing required fields.');
   }
 
   let finalResponse;
   try {
-    console.log(`[Callback Processing] user: ${userKey}`);
+    console.log(`[Callback Step 1] user: ${userKey} - Starting conversation analysis`);
     const updated_extracted_data = await analyzeConversation(history);
-    const judgement = judgeAsthma(updated_extracted_data);
+    console.log(
+      `[Callback Step 2] user: ${userKey} - Analysis completed, extracted_data:`,
+      JSON.stringify(updated_extracted_data, null, 2)
+    );
 
+    console.log(`[Callback Step 3] user: ${userKey} - Starting asthma judgement`);
+    const judgement = judgeAsthma(updated_extracted_data);
+    console.log(
+      `[Callback Step 4] user: ${userKey} - Judgement completed:`,
+      JSON.stringify(judgement, null, 2)
+    );
+
+    console.log(`[Callback Step 5] user: ${userKey} - Formatting result`);
     const { mainText, quickReplies } = formatResult(judgement, updated_extracted_data);
+    console.log(
+      `[Callback Step 6] user: ${userKey} - Result formatted - mainText: ${mainText}, quickReplies:`,
+      quickReplies
+    );
 
     // ★★★ simpleText 대신 basicCard 형식으로 최종 응답 생성 ★★★
+    console.log(`[Callback Step 7] user: ${userKey} - Creating final response card`);
     finalResponse = createResultCardResponse(mainText, quickReplies, judgement.possibility);
     console.log(
-      `[Callback Response] user: ${userKey}, response:`,
+      `[Callback Step 8] user: ${userKey} - Final response created:`,
       JSON.stringify(finalResponse, null, 2)
     );
 
+    console.log(`[Callback Step 9] user: ${userKey} - Saving to Firestore`);
     await setFirestoreData(userKey, {
       state: 'POST_ANALYSIS',
       extracted_data: updated_extracted_data,
       history,
     });
+    console.log(`[Callback Step 10] user: ${userKey} - Firestore save completed`);
   } catch (error) {
-    console.error(`[Callback Error] user: ${userKey}`, error);
+    console.error(`[Callback Error] user: ${userKey} - Error occurred:`, error);
+    console.error(`[Callback Error] user: ${userKey} - Error stack:`, error.stack);
     const errorText =
       '죄송합니다, 답변을 분석하는 중 오류가 발생했어요. 잠시 후 다시 시도해주세요. 😥';
     finalResponse = createResponseFormat(errorText, ['다시 검사하기']);
+    console.log(
+      `[Callback Error Response] user: ${userKey} - Error response created:`,
+      JSON.stringify(finalResponse, null, 2)
+    );
   }
 
   try {

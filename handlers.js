@@ -100,10 +100,25 @@ async function handleConfirmAnalysis(userKey, utterance, history, extracted_data
     ['ㅇ', 'ㅇㅇ', 'ㅇㅋ', 'ㄱㄹ', 'ㄱㅊ'].some((phrase) => utterance.includes(phrase));
 
   if (isAffirmative) {
+    console.log(
+      `[Confirm Analysis] user: ${userKey} - Affirmative response detected: ${convertedUtterance}`
+    );
     history.push(`사용자: ${convertedUtterance}`);
+
+    console.log(`[Confirm Analysis] user: ${userKey} - Generating wait message`);
     const waitMessage = await generateWaitMessage(history);
+    console.log(`[Confirm Analysis] user: ${userKey} - Wait message generated: ${waitMessage}`);
+
+    console.log(`[Confirm Analysis] user: ${userKey} - Creating analysis task`);
     await createAnalysisTask({ userKey, history, extracted_data, callbackUrl });
-    return createCallbackWaitResponse(waitMessage);
+    console.log(`[Confirm Analysis] user: ${userKey} - Analysis task created successfully`);
+
+    const response = createCallbackWaitResponse(waitMessage);
+    console.log(
+      `[Confirm Analysis] user: ${userKey} - Returning callback wait response:`,
+      JSON.stringify(response, null, 2)
+    );
+    return response;
   }
 
   history.push(`사용자: ${convertedUtterance}`);

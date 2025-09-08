@@ -22,40 +22,72 @@ const SESSION_TIMEOUT = 10 * 60 * 1000;
 
 // --- Firestore, BigQuery, Cloud Tasks 서비스 (변경 없음) ---
 const getFirestoreData = async (userKey) => {
-  const doc = await firestore.collection('conversations').doc(userKey).get();
-  if (!doc.exists) return null;
+  try {
+    console.log(`[Firestore Get] user: ${userKey} - Starting data retrieval`);
+    const doc = await firestore.collection('conversations').doc(userKey).get();
+    if (!doc.exists) {
+      console.log(`[Firestore Get] user: ${userKey} - No document found`);
+      return null;
+    }
 
-  const data = doc.data();
+    const data = doc.data();
+    console.log(
+      `[Firestore Get] user: ${userKey} - Data retrieved:`,
+      JSON.stringify(data, null, 2)
+    );
 
-  // 세션 타임아웃 체크
-  if (data.lastActivity && Date.now() - data.lastActivity > SESSION_TIMEOUT) {
-    console.log(`[Session Timeout] user: ${userKey}, lastActivity: ${new Date(data.lastActivity)}`);
-    // 세션 만료 시 데이터 자동 삭제
-    await deleteFirestoreData(userKey);
+    // 세션 타임아웃 체크
+    if (data.lastActivity && Date.now() - data.lastActivity > SESSION_TIMEOUT) {
+      console.log(
+        `[Session Timeout] user: ${userKey}, lastActivity: ${new Date(data.lastActivity)}`
+      );
+      // 세션 만료 시 데이터 자동 삭제
+      await deleteFirestoreData(userKey);
+      return null;
+    }
+
+    console.log(`[Firestore Get] user: ${userKey} - Returning valid data`);
+    return data;
+  } catch (error) {
+    console.error(`[Firestore Get Error] user: ${userKey}`, error);
     return null;
   }
-
-  return data;
 };
 
 const setFirestoreData = async (userKey, data) => {
-  // lastActivity 자동 업데이트
-  const dataWithTimestamp = {
-    ...data,
-    lastActivity: Date.now(),
-  };
+  try {
+    console.log(`[Firestore Set] user: ${userKey} - Starting data save`);
+    console.log(`[Firestore Set] user: ${userKey} - Data to save:`, JSON.stringify(data, null, 2));
 
-  await firestore.collection('conversations').doc(userKey).set(dataWithTimestamp, { merge: true });
-  console.log(`[Data Updated] user: ${userKey}, state: ${data.state || 'unknown'}`);
+    // lastActivity 자동 업데이트
+    const dataWithTimestamp = {
+      ...data,
+      lastActivity: Date.now(),
+    };
+
+    await firestore
+      .collection('conversations')
+      .doc(userKey)
+      .set(dataWithTimestamp, { merge: true });
+    console.log(
+      `[Firestore Set] user: ${userKey} - Data saved successfully, state: ${
+        data.state || 'unknown'
+      }`
+    );
+  } catch (error) {
+    console.error(`[Firestore Set Error] user: ${userKey}`, error);
+    throw error;
+  }
 };
 
 const deleteFirestoreData = async (userKey) => {
   try {
+    console.log(`[Firestore Delete] user: ${userKey} - Starting data deletion`);
     await firestore.collection('conversations').doc(userKey).delete();
-    console.log(`[Data Deleted] user: ${userKey}`);
+    console.log(`[Firestore Delete] user: ${userKey} - Data deleted successfully`);
     return true;
   } catch (error) {
-    console.error(`[Delete Error] user: ${userKey}`, error);
+    console.error(`[Firestore Delete Error] user: ${userKey}`, error);
     return false;
   }
 };
@@ -73,19 +105,40 @@ const resetUserData = async (userKey) => {
 };
 
 const createAnalysisTask = async (payload) => {
-  const { GCP_PROJECT, GCP_LOCATION, TASK_QUEUE_NAME, CLOUD_RUN_URL } = process.env;
-  const queuePath = tasksClient.queuePath(GCP_PROJECT, GCP_LOCATION, TASK_QUEUE_NAME);
-  const url = `${CLOUD_RUN_URL}/process-analysis-callback`;
-  const task = {
-    httpRequest: {
-      httpMethod: 'POST',
-      url,
-      headers: { 'Content-Type': 'application/json' },
-      body: Buffer.from(JSON.stringify(payload)).toString('base64'),
-    },
-  };
-  await tasksClient.createTask({ parent: queuePath, task });
-  console.log(`[Task Created] for user: ${payload.userKey}`);
+  try {
+    console.log(`[Cloud Task] user: ${payload.userKey} - Starting task creation`);
+    const { GCP_PROJECT, GCP_LOCATION, TASK_QUEUE_NAME, CLOUD_RUN_URL } = process.env;
+
+    console.log(
+      `[Cloud Task] user: ${payload.userKey} - Environment: PROJECT=${GCP_PROJECT}, LOCATION=${GCP_LOCATION}, QUEUE=${TASK_QUEUE_NAME}`
+    );
+
+    const queuePath = tasksClient.queuePath(GCP_PROJECT, GCP_LOCATION, TASK_QUEUE_NAME);
+    const url = `${CLOUD_RUN_URL}/process-analysis-callback`;
+
+    console.log(`[Cloud Task] user: ${payload.userKey} - Queue path: ${queuePath}`);
+    console.log(`[Cloud Task] user: ${payload.userKey} - Callback URL: ${url}`);
+
+    const task = {
+      httpRequest: {
+        httpMethod: 'POST',
+        url,
+        headers: { 'Content-Type': 'application/json' },
+        body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+      },
+    };
+
+    console.log(
+      `[Cloud Task] user: ${payload.userKey} - Task payload:`,
+      JSON.stringify(payload, null, 2)
+    );
+
+    const result = await tasksClient.createTask({ parent: queuePath, task });
+    console.log(`[Cloud Task] user: ${payload.userKey} - Task created successfully:`, result.name);
+  } catch (error) {
+    console.error(`[Cloud Task Error] user: ${payload.userKey}`, error);
+    throw error;
+  }
 };
 const archiveToBigQuery = async (userKey, finalData) => {
   const { BIGQUERY_DATASET_ID, BIGQUERY_TABLE_ID } = process.env;
@@ -107,13 +160,22 @@ async function callGeminiWithApiKey(
 ) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   if (!GEMINI_API_KEY) {
+    console.error('[Gemini API Error] GEMINI_API_KEY environment variable is not set.');
     throw new Error('GEMINI_API_KEY environment variable is not set.');
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
 
+  console.log(`[Gemini API Call] Model: ${modelName}, IsJson: ${isJson}, Timeout: ${timeout}ms`);
+  console.log(
+    `[Gemini API Call] SystemPrompt length: ${systemPrompt.length} chars, Context length: ${context.length} chars`
+  );
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const timeoutId = setTimeout(() => {
+    console.log(`[Gemini API Timeout] Model: ${modelName}, Timeout: ${timeout}ms`);
+    controller.abort();
+  }, timeout);
 
   const contents = [
     { role: 'user', parts: [{ text: systemPrompt }] },
@@ -133,6 +195,7 @@ async function callGeminiWithApiKey(
   }
 
   try {
+    console.log(`[Gemini API Request] Sending request to: ${url}`);
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -140,19 +203,35 @@ async function callGeminiWithApiKey(
       signal: controller.signal,
     });
 
+    console.log(`[Gemini API Response] Status: ${response.status} ${response.statusText}`);
+
     if (!response.ok) {
       const errorBody = await response.text();
+      console.error(`[Gemini API Error] ${response.status}: ${errorBody}`);
       throw new Error(`Gemini API Error (${response.status}): ${errorBody}`);
     }
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error('Invalid response from Gemini API.');
+    if (!text) {
+      console.error(
+        '[Gemini API Error] Invalid response structure:',
+        JSON.stringify(data, null, 2)
+      );
+      throw new Error('Invalid response from Gemini API.');
+    }
+
+    console.log(
+      `[Gemini API Success] Model: ${modelName}, Response length: ${text.length} characters`
+    );
+    console.log(`[Gemini API Response] First 200 chars: ${text.substring(0, 200)}...`);
     return text;
   } catch (error) {
     if (error.name === 'AbortError') {
+      console.error(`[Gemini API Timeout] Model: ${modelName}, Timeout: ${timeout}ms`);
       throw new Error(`Gemini API call timed out after ${timeout}ms.`);
     }
+    console.error(`[Gemini API Error] Model: ${modelName}, Error:`, error);
     throw error;
   } finally {
     clearTimeout(timeoutId);
