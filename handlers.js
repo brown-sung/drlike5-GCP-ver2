@@ -7,6 +7,7 @@ const {
   archiveToBigQuery,
   deleteFirestoreData,
   resetUserData,
+  analyzeConversation,
 } = require('./services');
 const { createResponseFormat, createCallbackWaitResponse } = require('./utils');
 const {
@@ -87,9 +88,20 @@ async function handleCollecting(userKey, utterance, history, extracted_data, cal
   );
   console.log(`[Handle Collecting] user: ${userKey} - Current history length: ${history.length}`);
 
+  // 사용자 답변을 분석하여 extracted_data 업데이트
+  console.log(
+    `[Handle Collecting] user: ${userKey} - Analyzing user response to update extracted_data`
+  );
+  const updated_extracted_data = await analyzeConversation(history);
+  console.log(
+    `[Handle Collecting] user: ${userKey} - Analysis completed, extracted_data fields: ${
+      Object.keys(updated_extracted_data).length
+    } fields`
+  );
+
   try {
     console.log(`[Handle Collecting] user: ${userKey} - Calling generateNextQuestion`);
-    const nextQuestion = await generateNextQuestion(history, extracted_data);
+    const nextQuestion = await generateNextQuestion(history, updated_extracted_data);
     console.log(`[Handle Collecting] user: ${userKey} - Generated question:`, nextQuestion);
 
     history.push(`챗봇: ${nextQuestion}`);
@@ -100,10 +112,19 @@ async function handleCollecting(userKey, utterance, history, extracted_data, cal
       console.log(
         `[Handle Collecting] user: ${userKey} - Analysis suggestion detected, changing state to CONFIRM_ANALYSIS`
       );
-      await setFirestoreData(userKey, { state: 'CONFIRM_ANALYSIS', history });
+      await setFirestoreData(userKey, {
+        state: 'CONFIRM_ANALYSIS',
+        history,
+        extracted_data: updated_extracted_data,
+      });
     } else {
-      console.log(`[Handle Collecting] user: ${userKey} - Regular question, saving history only`);
-      await setFirestoreData(userKey, { history });
+      console.log(
+        `[Handle Collecting] user: ${userKey} - Regular question, saving history and extracted_data`
+      );
+      await setFirestoreData(userKey, {
+        history,
+        extracted_data: updated_extracted_data,
+      });
     }
 
     const response = createResponseFormat(nextQuestion);

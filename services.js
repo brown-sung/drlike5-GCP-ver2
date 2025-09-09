@@ -550,8 +550,15 @@ const generateNextQuestion = async (history, extracted_data) => {
   const frequencyQuestions = ['증상 지속', '기관지확장제 사용'];
   const riskFactors = ['가족력', '아토피 병력', '공중 항원', '식품 항원'];
 
-  // 1단계: 천식 핵심 증상 질문 여부 확인
+  // 1단계: 천식 핵심 증상 질문 여부 확인 (extracted_data 우선 확인)
   const askedCoreSymptoms = coreSymptoms.filter((symptom) => {
+    // extracted_data에서 먼저 확인 (Y 또는 N으로 답변된 경우)
+    const symptomKey = symptom === '가슴 답답' ? '가슴 답답' : symptom;
+    if (extracted_data[symptomKey] === 'Y' || extracted_data[symptomKey] === 'N') {
+      return true;
+    }
+
+    // extracted_data에 없으면 대화 기록에서 확인
     const symptomKeywords = {
       쌕쌕거림: ['쌕쌕', '쌕쌕거리', 'wheezing', '휘파람'],
       호흡곤란: ['호흡곤란', '숨쉬기', '숨쉬는', '호흡', '숨'],
@@ -567,8 +574,14 @@ const generateNextQuestion = async (history, extracted_data) => {
     );
   });
 
-  // 2단계: 빈도 조건 질문 여부 확인
+  // 2단계: 빈도 조건 질문 여부 확인 (extracted_data 우선 확인)
   const askedFrequencyQuestions = frequencyQuestions.filter((question) => {
+    // extracted_data에서 먼저 확인 (값이 있는 경우)
+    if (extracted_data[question] !== null && extracted_data[question] !== '') {
+      return true;
+    }
+
+    // extracted_data에 없으면 대화 기록에서 확인
     const questionKeywords = {
       '증상 지속': ['얼마나', '오래', '지속', '3개월'],
       '기관지확장제 사용': ['기관지', '확장제', '약물', '사용'],
@@ -582,8 +595,14 @@ const generateNextQuestion = async (history, extracted_data) => {
     );
   });
 
-  // 3단계: 위험인자 질문 여부 확인
+  // 3단계: 위험인자 질문 여부 확인 (extracted_data 우선 확인)
   const askedRiskFactors = riskFactors.filter((factor) => {
+    // extracted_data에서 먼저 확인 (Y 또는 N으로 답변된 경우)
+    if (extracted_data[factor] === 'Y' || extracted_data[factor] === 'N') {
+      return true;
+    }
+
+    // extracted_data에 없으면 대화 기록에서 확인
     const factorKeywords = {
       가족력: ['가족', '부모', '형제', '유전'],
       '아토피 병력': ['아토피', '피부염', '알레르기 비염'],
@@ -647,8 +666,15 @@ const generateNextQuestion = async (history, extracted_data) => {
     // 핵심 증상이 부족하면 부정적인 답변이 있어도 계속 질문해야 함
   }
 
-  // 아직 질문하지 않은 핵심 증상 찾기 (대화 기록에서 질문 여부 확인)
+  // 아직 질문하지 않은 핵심 증상 찾기 (extracted_data 우선 확인)
   const unaskedCoreSymptoms = coreSymptoms.filter((symptom) => {
+    // extracted_data에서 먼저 확인 (Y 또는 N으로 답변된 경우)
+    const symptomKey = symptom === '가슴 답답' ? '가슴 답답' : symptom;
+    if (extracted_data[symptomKey] === 'Y' || extracted_data[symptomKey] === 'N') {
+      return false; // 이미 답변됨
+    }
+
+    // extracted_data에 없으면 대화 기록에서 확인
     const symptomKeywords = {
       쌕쌕거림: ['쌕쌕', '쌕쌕거리', 'wheezing', '휘파람'],
       호흡곤란: ['호흡곤란', '숨쉬기', '숨쉬는', '호흡', '숨'],
