@@ -10,23 +10,34 @@ const createResponseFormat = (mainText, questions = []) => {
 
   // JSON 형태의 문자열 제거
   if (typeof cleanText === 'string') {
-    // JSON 객체 형태 제거
-    const jsonPattern = /\{[^{}]*"response"[^{}]*\}/g;
-    if (jsonPattern.test(cleanText)) {
-      const jsonMatch = cleanText.match(jsonPattern);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0]);
-          cleanText =
-            parsed.response ||
-            parsed.text ||
-            parsed.message ||
-            parsed.question ||
-            parsed.content ||
-            parsed.answer ||
-            cleanText;
-        } catch (e) {
-          // JSON 파싱 실패 시 원본 사용
+    // JSON 객체 형태 제거 (더 강력한 처리)
+    const jsonPatterns = [
+      /\{[^{}]*"response"[^{}]*\}/g,
+      /\{[^{}]*"text"[^{}]*\}/g,
+      /\{[^{}]*"message"[^{}]*\}/g,
+      /\{[^{}]*"question"[^{}]*\}/g,
+      /\{[^{}]*"content"[^{}]*\}/g,
+    ];
+
+    for (const pattern of jsonPatterns) {
+      if (pattern.test(cleanText)) {
+        const jsonMatch = cleanText.match(pattern);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            cleanText =
+              parsed.response ||
+              parsed.text ||
+              parsed.message ||
+              parsed.question ||
+              parsed.content ||
+              parsed.answer ||
+              cleanText;
+            break; // 첫 번째로 성공한 패턴 사용
+          } catch (e) {
+            // JSON 파싱 실패 시 다음 패턴 시도
+            continue;
+          }
         }
       }
     }

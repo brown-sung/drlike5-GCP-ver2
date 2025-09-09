@@ -533,7 +533,7 @@ const generateNextQuestion = async (history, extracted_data) => {
       SYSTEM_PROMPT_GENERATE_QUESTION,
       context,
       'gemini-2.5-flash-lite', // 더 빠른 모델 사용
-      true,
+      false, // JSON 응답 요청하지 않음
       4000 // 4초로 설정 (flash-lite는 더 빠름)
     );
 
@@ -553,6 +553,7 @@ const generateNextQuestion = async (history, extracted_data) => {
           parsed.question ||
           parsed.content ||
           parsed.response ||
+          parsed.answer ||
           result;
         console.log(`[Question Generation] Extracted text from JSON:`, extractedText);
         return extractedText;
@@ -569,11 +570,15 @@ const generateNextQuestion = async (history, extracted_data) => {
         result.includes("{'") ||
         result.includes('"response"') ||
         result.includes('"text"') ||
-        result.includes('"message"'))
+        result.includes('"message"') ||
+        result.includes('"question"') ||
+        result.includes('"content"'))
     ) {
       try {
-        // JSON 부분만 추출하여 파싱
-        const jsonMatch = result.match(/\{.*\}/);
+        // JSON 부분만 추출하여 파싱 (더 강력한 정규식)
+        const jsonMatch = result.match(
+          /\{[^{}]*(?:"response"|"text"|"message"|"question"|"content")[^{}]*\}/
+        );
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           const extractedText =
@@ -642,22 +647,33 @@ const generateNextQuestion = async (history, extracted_data) => {
       }
 
       // 정규식을 사용한 JSON 제거 (더 강력한 처리)
-      const jsonPattern = /\{[^{}]*"response"[^{}]*\}/g;
-      if (jsonPattern.test(cleanResult)) {
-        const jsonMatch = cleanResult.match(jsonPattern);
-        if (jsonMatch) {
-          try {
-            const parsed = JSON.parse(jsonMatch[0]);
-            cleanResult =
-              parsed.response ||
-              parsed.text ||
-              parsed.message ||
-              parsed.question ||
-              parsed.content ||
-              parsed.answer ||
-              cleanResult;
-          } catch (e) {
-            // JSON 파싱 실패 시 원본 사용
+      const jsonPatterns = [
+        /\{[^{}]*"response"[^{}]*\}/g,
+        /\{[^{}]*"text"[^{}]*\}/g,
+        /\{[^{}]*"message"[^{}]*\}/g,
+        /\{[^{}]*"question"[^{}]*\}/g,
+        /\{[^{}]*"content"[^{}]*\}/g,
+      ];
+
+      for (const pattern of jsonPatterns) {
+        if (pattern.test(cleanResult)) {
+          const jsonMatch = cleanResult.match(pattern);
+          if (jsonMatch) {
+            try {
+              const parsed = JSON.parse(jsonMatch[0]);
+              cleanResult =
+                parsed.response ||
+                parsed.text ||
+                parsed.message ||
+                parsed.question ||
+                parsed.content ||
+                parsed.answer ||
+                cleanResult;
+              break; // 첫 번째로 성공한 패턴 사용
+            } catch (e) {
+              // JSON 파싱 실패 시 다음 패턴 시도
+              continue;
+            }
           }
         }
       }
