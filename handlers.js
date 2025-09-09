@@ -62,24 +62,48 @@ async function handleCollecting(userKey, utterance, history, extracted_data, cal
   history.push(`사용자: ${utterance}`);
 
   try {
+    console.log(`[Handle Collecting] user: ${userKey} - Calling generateNextQuestion`);
     const nextQuestion = await generateNextQuestion(history, extracted_data);
+    console.log(`[Handle Collecting] user: ${userKey} - Generated question:`, nextQuestion);
+
     history.push(`챗봇: ${nextQuestion}`);
+    console.log(`[Handle Collecting] user: ${userKey} - Updated history length: ${history.length}`);
 
     // AI가 분석을 제안했는지 확인하고 상태 변경
     if (nextQuestion.includes('말씀하고 싶은 다른 증상')) {
+      console.log(
+        `[Handle Collecting] user: ${userKey} - Analysis suggestion detected, changing state to CONFIRM_ANALYSIS`
+      );
       await setFirestoreData(userKey, { state: 'CONFIRM_ANALYSIS', history });
     } else {
+      console.log(`[Handle Collecting] user: ${userKey} - Regular question, saving history only`);
       await setFirestoreData(userKey, { history });
     }
 
-    return createResponseFormat(nextQuestion);
+    const response = createResponseFormat(nextQuestion);
+    console.log(
+      `[Handle Collecting] user: ${userKey} - Created response:`,
+      JSON.stringify(response, null, 2)
+    );
+    return response;
   } catch (error) {
     console.error('[Question Generation Error]', error);
     // 에러 시 기본 질문 반환
     const fallbackQuestion = '혹시 아이에게 다른 증상이 있으신가요?';
+    console.log(
+      `[Handle Collecting] user: ${userKey} - Using fallback question:`,
+      fallbackQuestion
+    );
+
     history.push(`챗봇: ${fallbackQuestion}`);
     await setFirestoreData(userKey, { history });
-    return createResponseFormat(fallbackQuestion);
+
+    const response = createResponseFormat(fallbackQuestion);
+    console.log(
+      `[Handle Collecting] user: ${userKey} - Created fallback response:`,
+      JSON.stringify(response, null, 2)
+    );
+    return response;
   }
 }
 

@@ -5,11 +5,21 @@ const IMAGE_URL_LOW_RISK =
   'https://github.com/brown-sung/drlike5-GCP/blob/main/asthma_low2.png?raw=true';
 
 const createResponseFormat = (mainText, questions = []) => {
+  // 텍스트에서 불필요한 쌍따옴표 제거
+  const cleanText = mainText
+    .replace(/^"|"$/g, '') // 앞뒤 쌍따옴표 제거
+    .replace(/\\"/g, '"') // 이스케이프된 쌍따옴표를 일반 쌍따옴표로 변환
+    .replace(/\n\s*\n/g, '\n') // 연속된 줄바꿈 정리
+    .trim();
+
+  console.log(`[Response Format] Original text: "${mainText}"`);
+  console.log(`[Response Format] Cleaned text: "${cleanText}"`);
+
   const safeQuestions = Array.isArray(questions) ? questions.slice(0, 10) : [];
   const response = {
     version: '2.0',
     template: {
-      outputs: [{ simpleText: { text: mainText } }],
+      outputs: [{ simpleText: { text: cleanText } }],
     },
   };
 
@@ -21,6 +31,7 @@ const createResponseFormat = (mainText, questions = []) => {
     }));
   }
 
+  console.log(`[Response Format] Final response:`, JSON.stringify(response, null, 2));
   return response;
 };
 

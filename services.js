@@ -469,6 +469,10 @@ async function analyzeAllergyTestImage(imageUrl) {
 
 // 다음 질문 생성 함수 (API 키 방식)
 const generateNextQuestion = async (history, extracted_data) => {
+  console.log(`[Question Generation] Starting question generation`);
+  console.log(`[Question Generation] History length: ${history.length}`);
+  console.log(`[Question Generation] Extracted data:`, JSON.stringify(extracted_data, null, 2));
+
   // 대화 기록에서 초성체를 한글로 변환
   const convertedHistory = history.map((entry) => {
     if (entry.startsWith('사용자: ')) {
@@ -481,6 +485,7 @@ const generateNextQuestion = async (history, extracted_data) => {
 
   // 최근 10턴만 사용하여 컨텍스트 길이 제한
   const recentHistory = convertedHistory.slice(-10);
+  console.log(`[Question Generation] Recent history length: ${recentHistory.length}`);
 
   // 반복 질문 방지: 최근 3턴에서 같은 질문이 있는지 확인
   const recentQuestions = recentHistory
@@ -494,6 +499,7 @@ const generateNextQuestion = async (history, extracted_data) => {
 
   // 반복 질문이 있으면 분석 제안으로 전환
   if (hasRepeatedQuestion) {
+    console.log(`[Question Generation] Detected repeated question, returning analysis suggestion`);
     return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
   }
 
@@ -504,29 +510,43 @@ const generateNextQuestion = async (history, extracted_data) => {
     null,
     2
   )}`;
+
+  console.log(`[Question Generation] Context length: ${context.length} characters`);
+  console.log(`[Question Generation] Context preview: ${context.substring(0, 300)}...`);
+
   try {
+    console.log(`[Question Generation] Calling Gemini API...`);
     const result = await callGeminiWithApiKey(
       SYSTEM_PROMPT_GENERATE_QUESTION,
       context,
-      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite', // 더 빠른 모델 사용
       true,
-      3800 // 3.8초로 단축
+      4000 // 4초로 설정 (flash-lite는 더 빠름)
     );
+
+    console.log(`[Question Generation] Gemini API response received:`, result);
+    console.log(`[Question Generation] Response type: ${typeof result}, Length: ${result.length}`);
 
     // JSON 응답인 경우 텍스트만 추출
     if (typeof result === 'string' && result.trim().startsWith('{')) {
       try {
         const parsed = JSON.parse(result);
-        return parsed.text || parsed.message || result;
+        const extractedText = parsed.text || parsed.message || result;
+        console.log(`[Question Generation] Extracted text from JSON:`, extractedText);
+        return extractedText;
       } catch (e) {
+        console.log(`[Question Generation] JSON parsing failed, using raw result:`, result);
         return result;
       }
     }
 
+    console.log(`[Question Generation] Using raw result:`, result);
     return result;
   } catch (error) {
+    console.error(`[Question Generation Error]`, error);
     if (error.message && error.message.includes('timed out')) {
       // 타임아웃 시 대기 메시지 반환
+      console.log(`[Question Generation] Timeout occurred, returning fallback message`);
       return '잠시만 기다려주세요. 질문을 준비하고 있어요...';
     }
     throw error;
