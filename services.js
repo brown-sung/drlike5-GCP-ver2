@@ -527,24 +527,46 @@ const generateNextQuestion = async (history, extracted_data) => {
       response.includes('없어') ||
       response.includes('ㄴㄴ') ||
       response.includes('아니오') ||
-      response.includes('없어요')
+      response.includes('없어요') ||
+      response.includes('그렇지') ||
+      response.includes('아니야') ||
+      response.includes('아닙니다') ||
+      response.includes('아니에요') ||
+      response.includes('그렇지 않') ||
+      response.includes('아닙니다') ||
+      response.includes('아니요')
   );
 
   console.log(`[Question Generation] Recent user responses:`, recentUserResponses);
   console.log(`[Question Generation] Has negative response:`, hasNegativeResponse);
 
-  // 부정적인 답변이 있으면 다른 증상에 대해 질문하거나 분석 제안
-  if (hasNegativeResponse && recentQuestions.length >= 2) {
-    console.log(
-      `[Question Generation] User gave negative response, suggesting analysis or asking different symptom`
-    );
-    return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
-  }
-
   // extracted_data에서 null이 아닌 값만 추출하여 컨텍스트에 포함
   const relevantData = Object.entries(extracted_data)
     .filter(([key, value]) => value !== null && value !== '')
     .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+
+  // 천식의 핵심 4가지 증상 확인
+  const coreSymptoms = ['쌕쌕거림', '호흡곤란', '가슴 답답', '야간'];
+  const askedCoreSymptoms = coreSymptoms.filter((symptom) => {
+    const symptomKey = symptom === '가슴 답답' ? '가슴 답답' : symptom;
+    return relevantData[symptomKey] !== null && relevantData[symptomKey] !== '';
+  });
+
+  console.log(`[Question Generation] Core symptoms asked: ${askedCoreSymptoms.length}/4`);
+  console.log(`[Question Generation] Asked symptoms:`, askedCoreSymptoms);
+
+  // 핵심 증상이 4개 미만이면 계속 질문
+  if (askedCoreSymptoms.length < 4) {
+    console.log(
+      `[Question Generation] Need to ask more core symptoms (${askedCoreSymptoms.length}/4)`
+    );
+    // 부정적인 답변이 있어도 핵심 증상이 부족하면 계속 질문
+  } else if (hasNegativeResponse && recentQuestions.length >= 2) {
+    console.log(
+      `[Question Generation] User gave negative response and core symptoms covered, suggesting analysis`
+    );
+    return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
+  }
 
   const context = `---최근 대화 기록---\n${recentHistory.join(
     '\n'
