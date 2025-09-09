@@ -26,8 +26,9 @@ async function handleInit(userKey, utterance) {
 
   const initialData = ALL_SYMPTOM_FIELDS.reduce((acc, field) => ({ ...acc, [field]: null }), {});
   console.log(
-    `[Handle Init] user: ${userKey} - Initial data created:`,
-    JSON.stringify(initialData, null, 2)
+    `[Handle Init] user: ${userKey} - Initial data created with ${
+      Object.keys(initialData).length
+    } fields`
   );
 
   const newHistory = [`사용자: ${convertedUtterance}`];

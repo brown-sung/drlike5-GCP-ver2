@@ -254,15 +254,15 @@ app.post('/process-analysis-callback', async (req, res) => {
     console.log(`[Callback Step 1] user: ${userKey} - Starting conversation analysis`);
     const updated_extracted_data = await analyzeConversation(history);
     console.log(
-      `[Callback Step 2] user: ${userKey} - Analysis completed, extracted_data:`,
-      JSON.stringify(updated_extracted_data, null, 2)
+      `[Callback Step 2] user: ${userKey} - Analysis completed, extracted_data fields: ${
+        Object.keys(updated_extracted_data).length
+      } fields`
     );
 
     console.log(`[Callback Step 3] user: ${userKey} - Starting asthma judgement`);
     const judgement = judgeAsthma(updated_extracted_data);
     console.log(
-      `[Callback Step 4] user: ${userKey} - Judgement completed:`,
-      JSON.stringify(judgement, null, 2)
+      `[Callback Step 4] user: ${userKey} - Judgement completed: possibility=${judgement.possibility}, score=${judgement.score}`
     );
 
     console.log(`[Callback Step 5] user: ${userKey} - Formatting result`);
@@ -276,8 +276,9 @@ app.post('/process-analysis-callback', async (req, res) => {
     console.log(`[Callback Step 7] user: ${userKey} - Creating final response card`);
     finalResponse = createResultCardResponse(mainText, quickReplies, judgement.possibility);
     console.log(
-      `[Callback Step 8] user: ${userKey} - Final response created:`,
-      JSON.stringify(finalResponse, null, 2)
+      `[Callback Step 8] user: ${userKey} - Final response created: ${
+        finalResponse.template?.outputs?.[0]?.simpleText?.text?.substring(0, 50) || 'No text'
+      }...`
     );
 
     console.log(`[Callback Step 9] user: ${userKey} - Saving to Firestore`);

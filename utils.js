@@ -76,8 +76,8 @@ const createResponseFormat = (mainText, questions = []) => {
     .replace(/\n\s*\n/g, '\n') // 연속된 줄바꿈 정리
     .trim();
 
-  console.log(`[Response Format] Original text: "${mainText}"`);
-  console.log(`[Response Format] Cleaned text: "${cleanText}"`);
+  console.log(`[Response Format] Original text length: ${mainText.length} characters`);
+  console.log(`[Response Format] Cleaned text length: ${cleanText.length} characters`);
 
   const safeQuestions = Array.isArray(questions) ? questions.slice(0, 10) : [];
   const response = {
@@ -95,7 +95,11 @@ const createResponseFormat = (mainText, questions = []) => {
     }));
   }
 
-  console.log(`[Response Format] Final response:`, JSON.stringify(response, null, 2));
+  console.log(
+    `[Response Format] Final response created with ${
+      response.template.outputs.length
+    } outputs and ${response.template.quickReplies?.length || 0} quick replies`
+  );
   return response;
 };
 

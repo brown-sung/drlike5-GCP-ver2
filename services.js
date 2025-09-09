@@ -477,7 +477,9 @@ async function analyzeAllergyTestImage(imageUrl) {
 const generateNextQuestion = async (history, extracted_data) => {
   console.log(`[Question Generation] Starting question generation`);
   console.log(`[Question Generation] History length: ${history.length}`);
-  console.log(`[Question Generation] Extracted data:`, JSON.stringify(extracted_data, null, 2));
+  console.log(
+    `[Question Generation] Extracted data fields: ${Object.keys(extracted_data).length} fields`
+  );
 
   // 대화 기록에서 초성체를 한글로 변환
   const convertedHistory = history.map((entry) => {
@@ -509,13 +511,18 @@ const generateNextQuestion = async (history, extracted_data) => {
     return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
   }
 
+  // extracted_data에서 null이 아닌 값만 추출하여 컨텍스트에 포함
+  const relevantData = Object.entries(extracted_data)
+    .filter(([key, value]) => value !== null && value !== '')
+    .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+
   const context = `---최근 대화 기록---\n${recentHistory.join(
     '\n'
-  )}\n---대화 기록 끝---\n\n[현재까지 분석된 환자 정보]\n${JSON.stringify(
-    extracted_data,
-    null,
-    2
-  )}`;
+  )}\n---대화 기록 끝---\n\n[현재까지 수집된 증상 정보]\n${
+    Object.keys(relevantData).length > 0
+      ? JSON.stringify(relevantData, null, 2)
+      : '아직 수집된 증상 정보가 없습니다.'
+  }`;
 
   console.log(`[Question Generation] Context length: ${context.length} characters`);
   console.log(`[Question Generation] Context preview: ${context.substring(0, 300)}...`);
