@@ -81,7 +81,11 @@ async function handleCollecting(userKey, utterance, history, extracted_data, cal
     return handleConfirmAnalysis(userKey, convertedUtterance, history, extracted_data, callbackUrl);
   }
 
-  history.push(`사용자: ${utterance}`);
+  history.push(`사용자: ${convertedUtterance}`);
+  console.log(
+    `[Handle Collecting] user: ${userKey} - Added to history: 사용자: ${convertedUtterance}`
+  );
+  console.log(`[Handle Collecting] user: ${userKey} - Current history length: ${history.length}`);
 
   try {
     console.log(`[Handle Collecting] user: ${userKey} - Calling generateNextQuestion`);

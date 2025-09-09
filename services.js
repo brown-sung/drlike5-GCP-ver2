@@ -501,13 +501,43 @@ const generateNextQuestion = async (history, extracted_data) => {
     .slice(-3)
     .map((entry) => entry.replace('챗봇: ', ''));
 
+  console.log(`[Question Generation] Recent questions:`, recentQuestions);
+
   const hasRepeatedQuestion =
     recentQuestions.length >= 2 &&
     recentQuestions[recentQuestions.length - 1] === recentQuestions[recentQuestions.length - 2];
 
+  console.log(`[Question Generation] Has repeated question:`, hasRepeatedQuestion);
+
   // 반복 질문이 있으면 분석 제안으로 전환
   if (hasRepeatedQuestion) {
     console.log(`[Question Generation] Detected repeated question, returning analysis suggestion`);
+    return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
+  }
+
+  // 사용자가 최근에 "아니요", "없어요", "ㄴㄴ" 등으로 답변했는지 확인
+  const recentUserResponses = recentHistory
+    .filter((entry) => entry.startsWith('사용자:'))
+    .slice(-3)
+    .map((entry) => entry.replace('사용자: ', '').toLowerCase());
+
+  const hasNegativeResponse = recentUserResponses.some(
+    (response) =>
+      response.includes('아니') ||
+      response.includes('없어') ||
+      response.includes('ㄴㄴ') ||
+      response.includes('아니오') ||
+      response.includes('없어요')
+  );
+
+  console.log(`[Question Generation] Recent user responses:`, recentUserResponses);
+  console.log(`[Question Generation] Has negative response:`, hasNegativeResponse);
+
+  // 부정적인 답변이 있으면 다른 증상에 대해 질문하거나 분석 제안
+  if (hasNegativeResponse && recentQuestions.length >= 2) {
+    console.log(
+      `[Question Generation] User gave negative response, suggesting analysis or asking different symptom`
+    );
     return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
   }
 
@@ -522,7 +552,12 @@ const generateNextQuestion = async (history, extracted_data) => {
     Object.keys(relevantData).length > 0
       ? JSON.stringify(relevantData, null, 2)
       : '아직 수집된 증상 정보가 없습니다.'
-  }`;
+  }
+
+중요 지침:
+1. 사용자가 "아니요", "없어요", "ㄴㄴ" 등으로 답변한 질문은 절대 다시 묻지 마세요.
+2. 이미 답변받은 증상에 대해서는 다른 질문을 하거나 분석을 제안하세요.
+3. 반복 질문을 하지 마세요.`;
 
   console.log(`[Question Generation] Context length: ${context.length} characters`);
   console.log(`[Question Generation] Context preview: ${context.substring(0, 300)}...`);
