@@ -545,28 +545,79 @@ const generateNextQuestion = async (history, extracted_data) => {
     .filter(([key, value]) => value !== null && value !== '')
     .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
 
-  // 천식의 핵심 4가지 증상 확인
+  // 천식의 핵심 4가지 증상 확인 (대화 기록에서 질문 여부 확인)
   const coreSymptoms = ['쌕쌕거림', '호흡곤란', '가슴 답답', '야간'];
   const askedCoreSymptoms = coreSymptoms.filter((symptom) => {
-    const symptomKey = symptom === '가슴 답답' ? '가슴 답답' : symptom;
-    return relevantData[symptomKey] !== null && relevantData[symptomKey] !== '';
+    // 대화 기록에서 해당 증상에 대한 질문이 있었는지 확인
+    const symptomKeywords = {
+      쌕쌕거림: ['쌕쌕', '쌕쌕거리', 'wheezing', '휘파람'],
+      호흡곤란: ['호흡곤란', '숨쉬기', '숨쉬는', '호흡', '숨'],
+      '가슴 답답': ['가슴', '답답', '답답함', '가슴이'],
+      야간: ['야간', '밤', '밤에', '밤중', '잠잘때', '잠들때'],
+    };
+
+    const keywords = symptomKeywords[symptom] || [];
+    return recentHistory.some(
+      (entry) =>
+        entry.startsWith('챗봇:') &&
+        keywords.some((keyword) => entry.toLowerCase().includes(keyword))
+    );
   });
 
   console.log(`[Question Generation] Core symptoms asked: ${askedCoreSymptoms.length}/4`);
   console.log(`[Question Generation] Asked symptoms:`, askedCoreSymptoms);
 
-  // 핵심 증상이 4개 미만이면 계속 질문
+  // 각 핵심 증상별 질문 여부 상세 로깅
+  coreSymptoms.forEach((symptom) => {
+    const symptomKeywords = {
+      쌕쌕거림: ['쌕쌕', '쌕쌕거리', 'wheezing', '휘파람'],
+      호흡곤란: ['호흡곤란', '숨쉬기', '숨쉬는', '호흡', '숨'],
+      '가슴 답답': ['가슴', '답답', '답답함', '가슴이'],
+      야간: ['야간', '밤', '밤에', '밤중', '잠잘때', '잠들때'],
+    };
+
+    const keywords = symptomKeywords[symptom] || [];
+    const hasAsked = recentHistory.some(
+      (entry) =>
+        entry.startsWith('챗봇:') &&
+        keywords.some((keyword) => entry.toLowerCase().includes(keyword))
+    );
+    console.log(`[Question Generation] ${symptom}: ${hasAsked ? '질문됨' : '미질문'}`);
+  });
+
+  // 핵심 증상이 4개 미만이면 반드시 계속 질문 (부정 답변과 관계없이)
   if (askedCoreSymptoms.length < 4) {
     console.log(
-      `[Question Generation] Need to ask more core symptoms (${askedCoreSymptoms.length}/4)`
+      `[Question Generation] Need to ask more core symptoms (${askedCoreSymptoms.length}/4) - continuing questions regardless of negative response`
     );
-    // 부정적인 답변이 있어도 핵심 증상이 부족하면 계속 질문
-  } else if (hasNegativeResponse && recentQuestions.length >= 2) {
-    console.log(
-      `[Question Generation] User gave negative response and core symptoms covered, suggesting analysis`
-    );
-    return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
+
+    // 핵심 증상이 부족하면 부정적인 답변이 있어도 계속 질문해야 함
+  } else {
+    // 핵심 증상이 모두 확인된 후에만 부정 답변에 따른 분석 제안
+    if (hasNegativeResponse && recentQuestions.length >= 2) {
+      console.log(
+        `[Question Generation] User gave negative response and core symptoms covered, suggesting analysis`
+      );
+      return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
+    }
   }
+
+  // 아직 질문하지 않은 핵심 증상 찾기 (대화 기록에서 질문 여부 확인)
+  const unaskedCoreSymptoms = coreSymptoms.filter((symptom) => {
+    const symptomKeywords = {
+      쌕쌕거림: ['쌕쌕', '쌕쌕거리', 'wheezing', '휘파람'],
+      호흡곤란: ['호흡곤란', '숨쉬기', '숨쉬는', '호흡', '숨'],
+      '가슴 답답': ['가슴', '답답', '답답함', '가슴이'],
+      야간: ['야간', '밤', '밤에', '밤중', '잠잘때', '잠들때'],
+    };
+
+    const keywords = symptomKeywords[symptom] || [];
+    return !recentHistory.some(
+      (entry) =>
+        entry.startsWith('챗봇:') &&
+        keywords.some((keyword) => entry.toLowerCase().includes(keyword))
+    );
+  });
 
   const context = `---최근 대화 기록---\n${recentHistory.join(
     '\n'
@@ -576,10 +627,19 @@ const generateNextQuestion = async (history, extracted_data) => {
       : '아직 수집된 증상 정보가 없습니다.'
   }
 
+[천식 핵심 증상 현황]
+- 전체 핵심 증상: 쌕쌕거림, 호흡곤란, 가슴 답답함, 야간 증상 (총 4개)
+- 질문 완료: ${askedCoreSymptoms.length}/4개
+- 아직 질문하지 않은 증상: ${
+    unaskedCoreSymptoms.length > 0 ? unaskedCoreSymptoms.join(', ') : '없음'
+  }
+
 중요 지침:
-1. 사용자가 "아니요", "없어요", "ㄴㄴ" 등으로 답변한 질문은 절대 다시 묻지 마세요.
-2. 이미 답변받은 증상에 대해서는 다른 질문을 하거나 분석을 제안하세요.
-3. 반복 질문을 하지 마세요.`;
+1. 천식의 핵심 4가지 증상(쌕쌕거림, 호흡곤란, 가슴 답답함, 야간 증상)에 대해서는 반드시 순차적으로 질문하세요.
+2. 사용자가 "없어", "아니", "그렇지 않아" 등으로 답변해도 핵심 증상이 4개 미만이면 계속 질문하세요.
+3. 핵심 증상이 모두 확인된 후에만 분석을 제안하세요.
+4. 사용자가 "아니요", "없어요", "ㄴㄴ" 등으로 답변한 질문은 절대 다시 묻지 마세요.
+5. 반복 질문을 하지 마세요.`;
 
   console.log(`[Question Generation] Context length: ${context.length} characters`);
   console.log(`[Question Generation] Context preview: ${context.substring(0, 300)}...`);
