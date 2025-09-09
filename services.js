@@ -738,6 +738,11 @@ const generateNextQuestion = async (history, extracted_data) => {
     console.log(`[Question Generation] Gemini API response received:`, result);
     console.log(`[Question Generation] Response type: ${typeof result}, Length: ${result.length}`);
 
+    // 생성된 질문을 extracted_data에 저장 (키워드 매칭용)
+    if (result && typeof result === 'string') {
+      extracted_data._lastQuestion = result;
+    }
+
     // JSON 응답인 경우 텍스트만 추출
     if (
       typeof result === 'string' &&
@@ -891,6 +896,121 @@ const generateNextQuestion = async (history, extracted_data) => {
 };
 
 // 종합 분석 함수 (API 키 방식)
+// 간단한 키워드 매칭으로 증상 데이터 추출 (빠른 처리)
+function extractSymptomDataFromResponse(userResponse, currentData) {
+  const response = userResponse.toLowerCase();
+  const updatedData = { ...currentData };
+
+  // 긍정/부정 키워드
+  const positiveKeywords = [
+    '네',
+    '예',
+    '맞아',
+    '있어',
+    '해요',
+    '됩니다',
+    '그래',
+    '응',
+    'ㅇㅇ',
+    'ㅇ',
+  ];
+  const negativeKeywords = ['아니', '없어', '안해', '아닙니다', '아니에요', 'ㄴㄴ', 'ㄴ'];
+
+  const isPositive = positiveKeywords.some((keyword) => response.includes(keyword));
+  const isNegative = negativeKeywords.some((keyword) => response.includes(keyword));
+
+  // 최근 질문에서 증상 키워드 추출
+  const recentQuestion = currentData._lastQuestion || '';
+  console.log(`[Symptom Extraction] Recent question: ${recentQuestion}`);
+  console.log(`[Symptom Extraction] User response: ${userResponse}`);
+
+  // 천식 핵심 증상 매칭
+  if (recentQuestion.includes('쌕쌕') || recentQuestion.includes('휘파람')) {
+    if (isPositive) updatedData['쌕쌕거림'] = 'Y';
+    else if (isNegative) updatedData['쌕쌕거림'] = 'N';
+  }
+
+  if (recentQuestion.includes('숨쉬') || recentQuestion.includes('호흡')) {
+    if (isPositive) updatedData['호흡곤란'] = 'Y';
+    else if (isNegative) updatedData['호흡곤란'] = 'N';
+  }
+
+  if (recentQuestion.includes('가슴') || recentQuestion.includes('답답')) {
+    if (isPositive) updatedData['가슴 답답'] = 'Y';
+    else if (isNegative) updatedData['가슴 답답'] = 'N';
+  }
+
+  if (
+    recentQuestion.includes('밤') ||
+    recentQuestion.includes('야간') ||
+    recentQuestion.includes('잠')
+  ) {
+    if (isPositive) updatedData['야간'] = 'Y';
+    else if (isNegative) updatedData['야간'] = 'N';
+  }
+
+  // 빈도 조건 매칭
+  if (
+    recentQuestion.includes('얼마나') ||
+    recentQuestion.includes('오래') ||
+    recentQuestion.includes('지속')
+  ) {
+    if (isPositive) {
+      // 3개월 이상 언급 확인
+      if (response.includes('3개월') || response.includes('세달') || response.includes('3달')) {
+        updatedData['증상 지속'] = '3개월 이상';
+      } else {
+        updatedData['증상 지속'] = '있음';
+      }
+    } else if (isNegative) {
+      updatedData['증상 지속'] = '없음';
+    }
+  }
+
+  if (recentQuestion.includes('기관지') || recentQuestion.includes('확장제')) {
+    if (isPositive) {
+      if (response.includes('3개월') || response.includes('세달') || response.includes('3달')) {
+        updatedData['기관지확장제 사용'] = '3개월 이상';
+      } else {
+        updatedData['기관지확장제 사용'] = '있음';
+      }
+    } else if (isNegative) {
+      updatedData['기관지확장제 사용'] = '없음';
+    }
+  }
+
+  // 위험인자 매칭
+  if (recentQuestion.includes('가족') || recentQuestion.includes('부모')) {
+    if (isPositive) updatedData['가족력'] = 'Y';
+    else if (isNegative) updatedData['가족력'] = 'N';
+  }
+
+  if (recentQuestion.includes('아토피') || recentQuestion.includes('알레르기')) {
+    if (isPositive) updatedData['아토피 병력'] = 'Y';
+    else if (isNegative) updatedData['아토피 병력'] = 'N';
+  }
+
+  if (
+    recentQuestion.includes('집먼지') ||
+    recentQuestion.includes('꽃가루') ||
+    recentQuestion.includes('곰팡이')
+  ) {
+    if (isPositive) updatedData['공중 항원'] = 'Y';
+    else if (isNegative) updatedData['공중 항원'] = 'N';
+  }
+
+  if (
+    recentQuestion.includes('우유') ||
+    recentQuestion.includes('계란') ||
+    recentQuestion.includes('땅콩')
+  ) {
+    if (isPositive) updatedData['식품 항원'] = 'Y';
+    else if (isNegative) updatedData['식품 항원'] = 'N';
+  }
+
+  return updatedData;
+}
+
 const analyzeConversation = async (history) => {
   // 대화 기록에서 초성체를 한글로 변환
   const convertedHistory = history.map((entry) => {
@@ -922,6 +1042,7 @@ module.exports = {
   generateAllergyTestWaitMessage,
   generateNextQuestion,
   analyzeConversation,
+  extractSymptomDataFromResponse,
   resetUserData,
   analyzeAllergyTestImage,
   extractTextFromImage,

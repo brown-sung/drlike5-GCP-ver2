@@ -8,6 +8,7 @@ const {
   deleteFirestoreData,
   resetUserData,
   analyzeConversation,
+  extractSymptomDataFromResponse,
 } = require('./services');
 const { createResponseFormat, createCallbackWaitResponse } = require('./utils');
 const {
@@ -88,14 +89,13 @@ async function handleCollecting(userKey, utterance, history, extracted_data, cal
   );
   console.log(`[Handle Collecting] user: ${userKey} - Current history length: ${history.length}`);
 
-  // 사용자 답변을 분석하여 extracted_data 업데이트
+  // 사용자 답변을 간단한 키워드 매칭으로 추출하여 extracted_data 업데이트
+  console.log(`[Handle Collecting] user: ${userKey} - Extracting symptom data from user response`);
+  const updated_extracted_data = extractSymptomDataFromResponse(convertedUtterance, extracted_data);
   console.log(
-    `[Handle Collecting] user: ${userKey} - Analyzing user response to update extracted_data`
-  );
-  const updated_extracted_data = await analyzeConversation(history);
-  console.log(
-    `[Handle Collecting] user: ${userKey} - Analysis completed, extracted_data fields: ${
-      Object.keys(updated_extracted_data).length
+    `[Handle Collecting] user: ${userKey} - Extraction completed, updated fields: ${
+      Object.keys(updated_extracted_data).filter((key) => updated_extracted_data[key] !== null)
+        .length
     } fields`
   );
 
