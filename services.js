@@ -95,9 +95,15 @@ const deleteFirestoreData = async (userKey) => {
 // 사용자 데이터 완전 초기화 함수
 const resetUserData = async (userKey) => {
   try {
-    await deleteFirestoreData(userKey);
-    console.log(`[User Reset] user: ${userKey} - all data cleared`);
-    return true;
+    console.log(`[User Reset] user: ${userKey} - Starting complete data reset`);
+    const deleteResult = await deleteFirestoreData(userKey);
+    if (deleteResult) {
+      console.log(`[User Reset] user: ${userKey} - All data cleared successfully`);
+      return true;
+    } else {
+      console.error(`[User Reset] user: ${userKey} - Failed to delete data`);
+      return false;
+    }
   } catch (error) {
     console.error(`[Reset Error] user: ${userKey}`, error);
     return false;

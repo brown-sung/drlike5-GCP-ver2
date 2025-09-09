@@ -18,21 +18,42 @@ const {
 const { judgeAsthma, formatDetailedResult } = require('./analysis');
 
 async function handleInit(userKey, utterance) {
+  console.log(`[Handle Init] user: ${userKey} - Starting new session with utterance: ${utterance}`);
+
   // 초성체 변환
   const convertedUtterance = convertInitialsToKorean(utterance);
+  console.log(`[Handle Init] user: ${userKey} - Converted utterance: ${convertedUtterance}`);
+
   const initialData = ALL_SYMPTOM_FIELDS.reduce((acc, field) => ({ ...acc, [field]: null }), {});
+  console.log(
+    `[Handle Init] user: ${userKey} - Initial data created:`,
+    JSON.stringify(initialData, null, 2)
+  );
+
   const newHistory = [`사용자: ${convertedUtterance}`];
+  console.log(`[Handle Init] user: ${userKey} - New history created:`, newHistory);
 
+  console.log(`[Handle Init] user: ${userKey} - Generating first question`);
   const nextQuestion = await generateNextQuestion(newHistory, initialData);
-  newHistory.push(`챗봇: ${nextQuestion}`);
+  console.log(`[Handle Init] user: ${userKey} - Generated question:`, nextQuestion);
 
+  newHistory.push(`챗봇: ${nextQuestion}`);
+  console.log(`[Handle Init] user: ${userKey} - Updated history:`, newHistory);
+
+  console.log(`[Handle Init] user: ${userKey} - Saving to Firestore`);
   await setFirestoreData(userKey, {
     state: 'COLLECTING',
     history: newHistory,
     extracted_data: initialData,
   });
+  console.log(`[Handle Init] user: ${userKey} - Data saved to Firestore`);
 
-  return createResponseFormat(nextQuestion);
+  const response = createResponseFormat(nextQuestion);
+  console.log(
+    `[Handle Init] user: ${userKey} - Created response:`,
+    JSON.stringify(response, null, 2)
+  );
+  return response;
 }
 
 async function handleCollecting(userKey, utterance, history, extracted_data, callbackUrl) {
@@ -183,4 +204,7 @@ const stateHandlers = {
   POST_ANALYSIS: handlePostAnalysis,
 };
 
-module.exports = stateHandlers;
+module.exports = {
+  ...stateHandlers,
+  handleInit,
+};

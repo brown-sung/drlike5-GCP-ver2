@@ -11,6 +11,7 @@ const {
   generateAllergyTestWaitMessage,
 } = require('./services');
 const stateHandlers = require('./handlers');
+const { handleInit } = require('./handlers');
 const {
   createResponseFormat,
   createResultCardResponse,
@@ -94,7 +95,16 @@ app.post('/skill', async (req, res) => {
       return res.status(400).json(createResponseFormat('잘못된 요청입니다.'));
     }
 
-    // 세션 리셋은 handlers.js에서 통일된 방식으로 처리
+    // 세션 리셋 키워드 먼저 체크 (데이터 조회 전에 처리)
+    const { TERMINATION_PHRASES } = require('./prompts');
+    if (TERMINATION_PHRASES.some((phrase) => utterance.includes(phrase))) {
+      console.log(
+        `[Session Reset] user: ${userKey}, reason: ${utterance} - Deleting all data and starting fresh`
+      );
+      await resetUserData(userKey);
+      // 리셋 후 새로운 세션 시작
+      return res.status(200).json(handleInit(userKey, utterance));
+    }
 
     if (!userData) {
       userData = { state: 'INIT', history: [] };
