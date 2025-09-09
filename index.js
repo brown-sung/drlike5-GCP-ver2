@@ -103,7 +103,8 @@ app.post('/skill', async (req, res) => {
       );
       await resetUserData(userKey);
       // 리셋 후 새로운 세션 시작
-      return res.status(200).json(handleInit(userKey, utterance));
+      const response = await handleInit(userKey, utterance);
+      return res.status(200).json(response);
     }
 
     if (!userData) {

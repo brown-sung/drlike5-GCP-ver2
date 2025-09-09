@@ -5,8 +5,72 @@ const IMAGE_URL_LOW_RISK =
   'https://github.com/brown-sung/drlike5-GCP/blob/main/asthma_low2.png?raw=true';
 
 const createResponseFormat = (mainText, questions = []) => {
-  // 텍스트에서 불필요한 쌍따옴표 제거
-  const cleanText = mainText
+  // 텍스트에서 JSON 형태 제거 및 정리
+  let cleanText = mainText;
+
+  // JSON 형태의 문자열 제거
+  if (typeof cleanText === 'string') {
+    // JSON 객체 형태 제거
+    const jsonPattern = /\{[^{}]*"response"[^{}]*\}/g;
+    if (jsonPattern.test(cleanText)) {
+      const jsonMatch = cleanText.match(jsonPattern);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          cleanText =
+            parsed.response ||
+            parsed.text ||
+            parsed.message ||
+            parsed.question ||
+            parsed.content ||
+            parsed.answer ||
+            cleanText;
+        } catch (e) {
+          // JSON 파싱 실패 시 원본 사용
+        }
+      }
+    }
+
+    // 다른 JSON 형태들도 처리
+    if (cleanText.includes('{"text":') || cleanText.includes('{"message":')) {
+      try {
+        const parsed = JSON.parse(cleanText);
+        cleanText =
+          parsed.text ||
+          parsed.message ||
+          parsed.question ||
+          parsed.content ||
+          parsed.response ||
+          parsed.answer ||
+          cleanText;
+      } catch (e) {
+        // JSON 파싱 실패 시 원본 사용
+      }
+    }
+
+    // 마크다운 코드 블록 제거
+    if (cleanText.startsWith('```json') && cleanText.endsWith('```')) {
+      cleanText = cleanText.substring(7, cleanText.length - 3).trim();
+      try {
+        const parsed = JSON.parse(cleanText);
+        cleanText =
+          parsed.text ||
+          parsed.message ||
+          parsed.question ||
+          parsed.content ||
+          parsed.response ||
+          parsed.answer ||
+          cleanText;
+      } catch (e) {
+        // JSON 파싱 실패 시 원본 사용
+      }
+    } else if (cleanText.startsWith('```') && cleanText.endsWith('```')) {
+      cleanText = cleanText.substring(3, cleanText.length - 3).trim();
+    }
+  }
+
+  // 최종 정리
+  cleanText = cleanText
     .replace(/^"|"$/g, '') // 앞뒤 쌍따옴표 제거
     .replace(/\\"/g, '"') // 이스케이프된 쌍따옴표를 일반 쌍따옴표로 변환
     .replace(/\n\s*\n/g, '\n') // 연속된 줄바꿈 정리

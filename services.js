@@ -534,10 +534,19 @@ const generateNextQuestion = async (history, extracted_data) => {
     console.log(`[Question Generation] Response type: ${typeof result}, Length: ${result.length}`);
 
     // JSON 응답인 경우 텍스트만 추출
-    if (typeof result === 'string' && result.trim().startsWith('{')) {
+    if (
+      typeof result === 'string' &&
+      (result.trim().startsWith('{') || result.trim().startsWith('['))
+    ) {
       try {
         const parsed = JSON.parse(result);
-        const extractedText = parsed.text || parsed.message || result;
+        const extractedText =
+          parsed.text ||
+          parsed.message ||
+          parsed.question ||
+          parsed.content ||
+          parsed.response ||
+          result;
         console.log(`[Question Generation] Extracted text from JSON:`, extractedText);
         return extractedText;
       } catch (e) {
@@ -546,8 +555,109 @@ const generateNextQuestion = async (history, extracted_data) => {
       }
     }
 
-    console.log(`[Question Generation] Using raw result:`, result);
-    return result;
+    // JSON 형태의 문자열이 포함된 경우 처리
+    if (
+      typeof result === 'string' &&
+      (result.includes('{"') ||
+        result.includes("{'") ||
+        result.includes('"response"') ||
+        result.includes('"text"') ||
+        result.includes('"message"'))
+    ) {
+      try {
+        // JSON 부분만 추출하여 파싱
+        const jsonMatch = result.match(/\{.*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          const extractedText =
+            parsed.text ||
+            parsed.message ||
+            parsed.question ||
+            parsed.content ||
+            parsed.response ||
+            parsed.answer ||
+            result;
+          console.log(`[Question Generation] Extracted text from embedded JSON:`, extractedText);
+          return extractedText;
+        }
+      } catch (e) {
+        console.log(
+          `[Question Generation] Embedded JSON parsing failed, using raw result:`,
+          result
+        );
+      }
+    }
+
+    // JSON이 아닌 경우에도 마크다운 코드 블록 제거
+    let cleanResult = result;
+    if (typeof result === 'string') {
+      // 마크다운 코드 블록 제거
+      if (result.startsWith('```json') && result.endsWith('```')) {
+        cleanResult = result.substring(7, result.length - 3).trim();
+        try {
+          const parsed = JSON.parse(cleanResult);
+          cleanResult =
+            parsed.text ||
+            parsed.message ||
+            parsed.question ||
+            parsed.content ||
+            parsed.response ||
+            cleanResult;
+        } catch (e) {
+          // JSON 파싱 실패 시 원본 사용
+        }
+      } else if (result.startsWith('```') && result.endsWith('```')) {
+        cleanResult = result.substring(3, result.length - 3).trim();
+      }
+
+      // 앞뒤 쌍따옴표 제거
+      cleanResult = cleanResult.replace(/^"|"$/g, '').trim();
+
+      // JSON 형태의 문자열이 남아있으면 제거
+      if (
+        cleanResult.includes('{"text":') ||
+        cleanResult.includes('{"message":') ||
+        cleanResult.includes('{"response":')
+      ) {
+        try {
+          const parsed = JSON.parse(cleanResult);
+          cleanResult =
+            parsed.text ||
+            parsed.message ||
+            parsed.question ||
+            parsed.content ||
+            parsed.response ||
+            parsed.answer ||
+            cleanResult;
+        } catch (e) {
+          // JSON 파싱 실패 시 원본 사용
+        }
+      }
+
+      // 정규식을 사용한 JSON 제거 (더 강력한 처리)
+      const jsonPattern = /\{[^{}]*"response"[^{}]*\}/g;
+      if (jsonPattern.test(cleanResult)) {
+        const jsonMatch = cleanResult.match(jsonPattern);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            cleanResult =
+              parsed.response ||
+              parsed.text ||
+              parsed.message ||
+              parsed.question ||
+              parsed.content ||
+              parsed.answer ||
+              cleanResult;
+          } catch (e) {
+            // JSON 파싱 실패 시 원본 사용
+          }
+        }
+      }
+    }
+
+    console.log(`[Question Generation] Using cleaned result:`, cleanResult);
+    return cleanResult;
   } catch (error) {
     console.error(`[Question Generation Error]`, error);
     if (error.message && error.message.includes('timed out')) {
