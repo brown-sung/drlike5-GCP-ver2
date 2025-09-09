@@ -545,10 +545,13 @@ const generateNextQuestion = async (history, extracted_data) => {
     .filter(([key, value]) => value !== null && value !== '')
     .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
 
-  // 천식의 핵심 4가지 증상 확인 (대화 기록에서 질문 여부 확인)
+  // 천식 진단 조건 체계적 확인
   const coreSymptoms = ['쌕쌕거림', '호흡곤란', '가슴 답답', '야간'];
+  const frequencyQuestions = ['증상 지속', '기관지확장제 사용'];
+  const riskFactors = ['가족력', '아토피 병력', '공중 항원', '식품 항원'];
+
+  // 1단계: 천식 핵심 증상 질문 여부 확인
   const askedCoreSymptoms = coreSymptoms.filter((symptom) => {
-    // 대화 기록에서 해당 증상에 대한 질문이 있었는지 확인
     const symptomKeywords = {
       쌕쌕거림: ['쌕쌕', '쌕쌕거리', 'wheezing', '휘파람'],
       호흡곤란: ['호흡곤란', '숨쉬기', '숨쉬는', '호흡', '숨'],
@@ -564,42 +567,84 @@ const generateNextQuestion = async (history, extracted_data) => {
     );
   });
 
-  console.log(`[Question Generation] Core symptoms asked: ${askedCoreSymptoms.length}/4`);
-  console.log(`[Question Generation] Asked symptoms:`, askedCoreSymptoms);
-
-  // 각 핵심 증상별 질문 여부 상세 로깅
-  coreSymptoms.forEach((symptom) => {
-    const symptomKeywords = {
-      쌕쌕거림: ['쌕쌕', '쌕쌕거리', 'wheezing', '휘파람'],
-      호흡곤란: ['호흡곤란', '숨쉬기', '숨쉬는', '호흡', '숨'],
-      '가슴 답답': ['가슴', '답답', '답답함', '가슴이'],
-      야간: ['야간', '밤', '밤에', '밤중', '잠잘때', '잠들때'],
+  // 2단계: 빈도 조건 질문 여부 확인
+  const askedFrequencyQuestions = frequencyQuestions.filter((question) => {
+    const questionKeywords = {
+      '증상 지속': ['얼마나', '오래', '지속', '3개월'],
+      '기관지확장제 사용': ['기관지', '확장제', '약물', '사용'],
     };
 
-    const keywords = symptomKeywords[symptom] || [];
-    const hasAsked = recentHistory.some(
+    const keywords = questionKeywords[question] || [];
+    return recentHistory.some(
       (entry) =>
         entry.startsWith('챗봇:') &&
         keywords.some((keyword) => entry.toLowerCase().includes(keyword))
     );
-    console.log(`[Question Generation] ${symptom}: ${hasAsked ? '질문됨' : '미질문'}`);
   });
 
-  // 핵심 증상이 4개 미만이면 반드시 계속 질문 (부정 답변과 관계없이)
-  if (askedCoreSymptoms.length < 4) {
+  // 3단계: 위험인자 질문 여부 확인
+  const askedRiskFactors = riskFactors.filter((factor) => {
+    const factorKeywords = {
+      가족력: ['가족', '부모', '형제', '유전'],
+      '아토피 병력': ['아토피', '피부염', '알레르기 비염'],
+      '공중 항원': ['집먼지', '꽃가루', '곰팡이', '공중'],
+      '식품 항원': ['우유', '계란', '땅콩', '음식', '식품'],
+    };
+
+    const keywords = factorKeywords[factor] || [];
+    return recentHistory.some(
+      (entry) =>
+        entry.startsWith('챗봇:') &&
+        keywords.some((keyword) => entry.toLowerCase().includes(keyword))
+    );
+  });
+
+  console.log(`[Question Generation] Core symptoms asked: ${askedCoreSymptoms.length}/4`);
+  console.log(
+    `[Question Generation] Frequency questions asked: ${askedFrequencyQuestions.length}/2`
+  );
+  console.log(`[Question Generation] Risk factors asked: ${askedRiskFactors.length}/4`);
+  console.log(`[Question Generation] Asked symptoms:`, askedCoreSymptoms);
+
+  // 천식 진단 조건에 따른 질문 우선순위
+  // 1단계: 천식 핵심 증상이 1개도 확인되지 않았으면 계속 질문
+  if (askedCoreSymptoms.length === 0) {
+    console.log(
+      `[Question Generation] No core symptoms asked yet - continuing core symptom questions`
+    );
+    // 핵심 증상이 부족하면 부정적인 답변이 있어도 계속 질문해야 함
+  }
+  // 2단계: 핵심 증상이 1개 이상 확인되었고, 빈도 조건이 확인되지 않았으면 빈도 질문
+  else if (askedCoreSymptoms.length >= 1 && askedFrequencyQuestions.length === 0) {
+    console.log(
+      `[Question Generation] Core symptoms confirmed (${askedCoreSymptoms.length}/4) but frequency not asked - asking frequency questions`
+    );
+    // 빈도 조건 질문 필요
+  }
+  // 3단계: 빈도 조건이 확인되었고, 위험인자가 2개 미만이면 위험인자 질문
+  else if (askedFrequencyQuestions.length >= 1 && askedRiskFactors.length < 2) {
+    console.log(
+      `[Question Generation] Frequency confirmed but risk factors insufficient (${askedRiskFactors.length}/4) - asking risk factor questions`
+    );
+    // 위험인자 질문 필요
+  }
+  // 4단계: 모든 조건이 충분히 확인되었으면 분석 제안
+  else if (
+    askedCoreSymptoms.length >= 1 &&
+    askedFrequencyQuestions.length >= 1 &&
+    askedRiskFactors.length >= 2
+  ) {
+    console.log(`[Question Generation] All conditions sufficiently covered - suggesting analysis`);
+    if (hasNegativeResponse && recentQuestions.length >= 2) {
+      return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
+    }
+  }
+  // 5단계: 기본적으로 핵심 증상이 부족하면 계속 질문
+  else if (askedCoreSymptoms.length < 4) {
     console.log(
       `[Question Generation] Need to ask more core symptoms (${askedCoreSymptoms.length}/4) - continuing questions regardless of negative response`
     );
-
     // 핵심 증상이 부족하면 부정적인 답변이 있어도 계속 질문해야 함
-  } else {
-    // 핵심 증상이 모두 확인된 후에만 부정 답변에 따른 분석 제안
-    if (hasNegativeResponse && recentQuestions.length >= 2) {
-      console.log(
-        `[Question Generation] User gave negative response and core symptoms covered, suggesting analysis`
-      );
-      return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
-    }
   }
 
   // 아직 질문하지 않은 핵심 증상 찾기 (대화 기록에서 질문 여부 확인)
@@ -627,19 +672,29 @@ const generateNextQuestion = async (history, extracted_data) => {
       : '아직 수집된 증상 정보가 없습니다.'
   }
 
-[천식 핵심 증상 현황]
-- 전체 핵심 증상: 쌕쌕거림, 호흡곤란, 가슴 답답함, 야간 증상 (총 4개)
-- 질문 완료: ${askedCoreSymptoms.length}/4개
+[천식 진단 조건 현황]
+1단계 - 천식 핵심 증상 (4가지 중 최소 1개 필요):
+- 질문 완료: ${askedCoreSymptoms.length}/4개 (${askedCoreSymptoms.join(', ') || '없음'})
 - 아직 질문하지 않은 증상: ${
     unaskedCoreSymptoms.length > 0 ? unaskedCoreSymptoms.join(', ') : '없음'
   }
 
+2단계 - 빈도 조건 (3개월 이상 필요):
+- 질문 완료: ${askedFrequencyQuestions.length}/2개 (${askedFrequencyQuestions.join(', ') || '없음'})
+- 필요: 증상 지속 3개월 이상 또는 기관지확장제 사용 3개월 이상
+
+3단계 - 위험인자 (주요 1개 또는 부가 2개 필요):
+- 질문 완료: ${askedRiskFactors.length}/4개 (${askedRiskFactors.join(', ') || '없음'})
+- 주요 인자: 가족력, 아토피 병력 (1개 이상)
+- 부가 인자: 공중 항원, 식품 항원 (2개 이상)
+
 중요 지침:
-1. 천식의 핵심 4가지 증상(쌕쌕거림, 호흡곤란, 가슴 답답함, 야간 증상)에 대해서는 반드시 순차적으로 질문하세요.
-2. 사용자가 "없어", "아니", "그렇지 않아" 등으로 답변해도 핵심 증상이 4개 미만이면 계속 질문하세요.
-3. 핵심 증상이 모두 확인된 후에만 분석을 제안하세요.
-4. 사용자가 "아니요", "없어요", "ㄴㄴ" 등으로 답변한 질문은 절대 다시 묻지 마세요.
-5. 반복 질문을 하지 마세요.`;
+1. 1단계에서 천식 핵심 증상이 1개도 확인되지 않았으면 계속 핵심 증상 질문을 하세요.
+2. 1단계가 완료되면 2단계 빈도 조건을 질문하세요.
+3. 2단계가 완료되면 3단계 위험인자를 질문하세요.
+4. 모든 단계가 충분히 확인되면 분석을 제안하세요.
+5. 사용자가 "아니요", "없어요", "ㄴㄴ" 등으로 답변한 질문은 절대 다시 묻지 마세요.
+6. 반복 질문을 하지 마세요.`;
 
   console.log(`[Question Generation] Context length: ${context.length} characters`);
   console.log(`[Question Generation] Context preview: ${context.substring(0, 300)}...`);
