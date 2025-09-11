@@ -111,19 +111,19 @@ function formatDetailedResult(extractedData) {
   if (extractedData['알레르기 검사 결과']) {
     try {
       const allergyTestData = JSON.parse(extractedData['알레르기 검사 결과']);
-      result += '🔬 **알레르기 검사 결과 상세**\n\n';
+      result += '🔬 알레르기 검사 결과 상세\n\n';
 
       if (allergyTestData.test_type) {
-        result += `**검사 종류:** ${allergyTestData.test_type}\n`;
+        result += `검사 종류: ${allergyTestData.test_type}\n`;
       }
 
       if (allergyTestData.total_ige) {
-        result += `**총 IgE:** ${allergyTestData.total_ige}\n\n`;
+        result += `총 IgE: ${allergyTestData.total_ige}\n\n`;
       }
 
       // 공중 알레르겐 상세 (단순화된 구조)
       if (allergyTestData.airborne_allergens && allergyTestData.airborne_allergens.length > 0) {
-        result += '🌬️ **공중 알레르겐:**\n';
+        result += '🌬️ 공중 알레르겐:\n';
         allergyTestData.airborne_allergens.forEach((item) => {
           result += `✅ ${item}\n`;
         });
@@ -132,7 +132,7 @@ function formatDetailedResult(extractedData) {
 
       // 식품 알레르겐 상세 (단순화된 구조)
       if (allergyTestData.food_allergens && allergyTestData.food_allergens.length > 0) {
-        result += '🍽️ **식품 알레르겐:**\n';
+        result += '🍽️ 식품 알레르겐:\n';
         allergyTestData.food_allergens.forEach((item) => {
           result += `✅ ${item}\n`;
         });

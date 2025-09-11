@@ -171,11 +171,9 @@ async function processAllergyTestAnalysis(userKey, mediaUrl, userData, callbackU
     extracted['알레르기 검사 결과'] = JSON.stringify(allergyTestData);
 
     // 사용자에게 분석 결과 요약 메시지 생성 (단순화)
-    let analysisSummary = `📋 **${
-      allergyTestData.test_type || '알레르기 검사'
-    } 결과 분석 완료**\n\n`;
+    let analysisSummary = `📋 ${allergyTestData.test_type || '알레르기 검사'} 결과 분석 완료\n\n`;
 
-    analysisSummary += `🔍 **검사 개요:**\n`;
+    analysisSummary += `🔍 검사 개요:\n`;
     analysisSummary += `• 양성 반응: ${allergyTestData.total_positive || 0}개\n`;
 
     if (allergyTestData.asthma_related > 0) {
@@ -191,23 +189,23 @@ async function processAllergyTestAnalysis(userKey, mediaUrl, userData, callbackU
       allergyTestData.asthma_high_risk?.length > 0 ||
       allergyTestData.asthma_medium_risk?.length > 0
     ) {
-      analysisSummary += `\n⚠️ **천식 관련 알레르기 항목:**\n`;
+      analysisSummary += `\n⚠️ 천식 관련 알레르기 항목:\n`;
 
       if (allergyTestData.asthma_high_risk?.length > 0) {
-        analysisSummary += `\n🔴 **고위험:**\n`;
+        analysisSummary += `\n🔴 고위험:\n`;
         allergyTestData.asthma_high_risk.forEach((item) => {
           analysisSummary += `• ${item}\n`;
         });
       }
 
       if (allergyTestData.asthma_medium_risk?.length > 0) {
-        analysisSummary += `\n🟡 **중위험:**\n`;
+        analysisSummary += `\n🟡 중위험:\n`;
         allergyTestData.asthma_medium_risk.forEach((item) => {
           analysisSummary += `• ${item}\n`;
         });
       }
 
-      analysisSummary += `\n💡 **천식 위험도:** ${allergyTestData.risk_level}\n`;
+      analysisSummary += `\n💡 천식 위험도: ${allergyTestData.risk_level}\n`;
     }
 
     analysisSummary += `\n이 정보가 증상 분석에 반영됩니다. 다른 증상에 대해서도 말씀해 주세요.`;
