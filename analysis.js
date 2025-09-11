@@ -43,24 +43,25 @@ function judgeAsthma(data) {
 }
 
 function formatResult(judgement, extractedData = null) {
-  let mainText;
+  let title;
+  let description;
   let quickReplies;
 
   if (judgement.possibility === '있음') {
-    mainText =
-      `상담 결과, 현재 증상이 천식으로 인한 가능성이 높아 보입니다.\n\n` +
+    title = '상담 결과, 현재 증상이 천식으로 인한 가능성이 높아 보입니다.';
+    description =
       `정확한 진단과 적절한 치료를 위해 소아청소년과 전문의 상담을 권장드립니다.\n\n` +
       `⚠️ 제공하는 결과는 참고용이며, 의학적 진단을 대신할 수 없습니다. 서비스 내용만으로 취한 조치에 대해서는 책임을 지지 않습니다.`;
     quickReplies = ['왜 천식 가능성이 있나요?', '천식 도움되는 정보', '병원 진료 예약하기'];
   } else {
-    mainText =
-      `상담 결과, 현재 증상이 천식으로 인한 가능성은 높지 않은 것으로 보입니다.\n` +
+    title = '상담 결과, 현재 증상이 천식으로 인한 가능성은 높지 않은 것으로 보입니다.';
+    description =
       `다만, 정확한 진단과 안심을 위해 소아청소년과 전문의 상담을 추천드립니다. 아이의 건강을 위한 예방 관리가 중요하지만, 지나치게 걱정하지 않으셔도 됩니다.\n\n` +
       `⚠️ 제공하는 결과는 참고용이며, 의학적 진단을 대신할 수 없습니다. 서비스 내용만으로 취한 조치에 대해서는 책임을 지지 않습니다.`;
     quickReplies = ['왜 천식 가능성이 낮은가요?', '천식 도움되는 정보', '병원 진료 예약하기'];
   }
 
-  return { mainText, quickReplies };
+  return { title, description, quickReplies };
 }
 
 // 상세 결과 보기 함수 추가

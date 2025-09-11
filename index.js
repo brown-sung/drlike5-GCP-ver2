@@ -15,8 +15,9 @@ const { handleInit } = require('./handlers');
 const {
   createResponseFormat,
   createResultCardResponse,
+  createBasicCardResponse,
   createCallbackWaitResponse,
-} = require('./utils'); // ★ createResultCardResponse 임포트
+} = require('./utils'); // ★ createBasicCardResponse 임포트
 const { judgeAsthma, formatResult } = require('./analysis');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
@@ -271,15 +272,20 @@ app.post('/process-analysis-callback', async (req, res) => {
     );
 
     console.log(`[Callback Step 5] user: ${userKey} - Formatting result`);
-    const { mainText, quickReplies } = formatResult(judgement, updated_extracted_data);
+    const { title, description, quickReplies } = formatResult(judgement, updated_extracted_data);
     console.log(
-      `[Callback Step 6] user: ${userKey} - Result formatted - mainText: ${mainText}, quickReplies:`,
+      `[Callback Step 6] user: ${userKey} - Result formatted - title: ${title}, quickReplies:`,
       quickReplies
     );
 
-    // ★★★ simpleText 대신 basicCard 형식으로 최종 응답 생성 ★★★
+    // ★★★ basicCard 형식으로 최종 응답 생성 (title과 description 분리) ★★★
     console.log(`[Callback Step 7] user: ${userKey} - Creating final response card`);
-    finalResponse = createResultCardResponse(mainText, quickReplies, judgement.possibility);
+    finalResponse = createBasicCardResponse(
+      title,
+      description,
+      quickReplies,
+      judgement.possibility
+    );
     console.log(
       `[Callback Step 8] user: ${userKey} - Final response created: ${
         finalResponse.template?.outputs?.[0]?.simpleText?.text?.substring(0, 50) || 'No text'

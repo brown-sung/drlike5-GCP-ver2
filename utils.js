@@ -170,8 +170,47 @@ const createResultCardResponse = (description, buttons, possibility) => {
   };
 };
 
+const createBasicCardResponse = (title, description, buttons, possibility) => {
+  const imageUrl = possibility === '있음' ? IMAGE_URL_HIGH_RISK : IMAGE_URL_LOW_RISK;
+  const safeButtons = Array.isArray(buttons) ? buttons : [];
+
+  return {
+    version: '2.0',
+    template: {
+      outputs: [
+        {
+          basicCard: {
+            title: title,
+            description: description,
+            thumbnail: {
+              imageUrl: imageUrl,
+            },
+            buttons: safeButtons.map((btnLabel) => {
+              // "병원 진료 예약하기" 버튼에 webLink 적용
+              if (btnLabel === '병원 진료 예약하기') {
+                return {
+                  action: 'webLink',
+                  label: btnLabel,
+                  webLinkUrl: 'https://pf.kakao.com/_wEhwxj',
+                };
+              }
+              // 다른 버튼들은 기본 message 액션
+              return {
+                action: 'message',
+                label: btnLabel,
+                messageText: btnLabel,
+              };
+            }),
+          },
+        },
+      ],
+    },
+  };
+};
+
 module.exports = {
   createResponseFormat,
   createCallbackWaitResponse,
   createResultCardResponse,
+  createBasicCardResponse,
 };
