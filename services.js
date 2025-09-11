@@ -1040,17 +1040,47 @@ function extractSymptomDataFromResponse(userResponse, currentData) {
 }
 
 const analyzeConversation = async (history) => {
-  // 대화 기록에서 초성체를 한글로 변환
-  const convertedHistory = history.map((entry) => {
-    if (entry.startsWith('사용자: ')) {
-      const userMessage = entry.slice('사용자: '.length);
-      const convertedMessage = convertInitialsToKorean(userMessage);
-      return `사용자: ${convertedMessage}`;
-    }
-    return entry;
-  });
+  // AI 질문과 사용자 응답을 매칭하여 분석
+  const conversationPairs = [];
 
-  const context = `다음은 분석할 대화록입니다:\n\n${convertedHistory.join('\n')}`;
+  for (let i = 0; i < history.length - 1; i++) {
+    const currentEntry = history[i];
+    const nextEntry = history[i + 1];
+
+    // AI 질문 다음에 사용자 응답이 오는 경우
+    if (currentEntry.startsWith('챗봇:') && nextEntry.startsWith('사용자:')) {
+      const aiQuestion = currentEntry.slice('챗봇: '.length);
+      const userResponse = nextEntry.slice('사용자: '.length);
+      const convertedUserResponse = convertInitialsToKorean(userResponse);
+
+      conversationPairs.push({
+        question: aiQuestion,
+        response: convertedUserResponse,
+      });
+    }
+  }
+
+  console.log('[Conversation Analysis] Found conversation pairs:', conversationPairs.length);
+  console.log('[Conversation Analysis] Pairs:', conversationPairs);
+
+  // 대화 쌍을 컨텍스트로 변환
+  const contextPairs = conversationPairs
+    .map(
+      (pair, index) => `질문 ${index + 1}: ${pair.question}\n답변 ${index + 1}: ${pair.response}`
+    )
+    .join('\n\n');
+
+  const context = `다음은 AI와 사용자의 질문-답변 쌍입니다. 각 질문에 대한 사용자의 답변을 분석하여 증상 정보를 추출하세요:
+
+${contextPairs}
+
+중요 지침:
+1. AI가 질문한 내용이 아니라, 사용자가 실제로 답변한 내용만 분석하세요.
+2. 사용자가 "네", "예", "있어요" 등으로 긍정 답변한 경우 "Y"로 표기하세요.
+3. 사용자가 "아니요", "없어요", "아니" 등으로 부정 답변한 경우 "N"으로 표기하세요.
+4. 사용자가 구체적인 정보를 제공한 경우 해당 텍스트를 그대로 사용하세요.
+5. 질문에 대한 답변이 없거나 불명확한 경우 "null"로 표기하세요.`;
+
   const resultText = await callGeminiWithApiKey(
     SYSTEM_PROMPT_ANALYZE_COMPREHENSIVE,
     context,
