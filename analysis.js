@@ -142,8 +142,8 @@ function formatDetailedResult(extractedData) {
     const sectionData = fields
       .map((field) => {
         const value = extractedData[field];
-        // null, undefined, 빈 문자열이 아닌 경우만 표시
-        if (value === null || value === undefined || value === '') return null;
+        // null, undefined, 빈 문자열, "null" 문자열이 아닌 경우만 표시
+        if (value === null || value === undefined || value === '' || value === 'null') return null;
         if (value === 'Y') return `✅ ${field}`;
         if (value === 'N') return `❌ ${field}`;
         return `📝 ${field}: ${value}`;
