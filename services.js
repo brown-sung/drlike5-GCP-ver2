@@ -760,9 +760,10 @@ const generateNextQuestion = async (history, extracted_data) => {
     console.log(`[Question Generation] Gemini API response received:`, result);
     console.log(`[Question Generation] Response type: ${typeof result}, Length: ${result.length}`);
 
-    // 생성된 질문을 extracted_data에 저장 (키워드 매칭용)
+    // 생성된 질문을 로깅 (extracted_data는 직접 수정하지 않음)
     if (result && typeof result === 'string') {
-      extracted_data._lastQuestion = result;
+      console.log(`[Question Generation] Generated question: ${result}`);
+      // extracted_data._lastQuestion은 호출하는 쪽에서 설정하도록 변경
     }
 
     // JSON 응답인 경우 텍스트만 추출

@@ -36,12 +36,18 @@ async function handleInit(userKey, utterance) {
     } fields (completely reset)`
   );
 
+  // extracted_data의 깊은 복사 생성 (generateNextQuestion에서 수정되지 않도록)
+  const safeInitialData = JSON.parse(JSON.stringify(initialData));
+
   const newHistory = [`사용자: ${convertedUtterance}`];
   console.log(`[Handle Init] user: ${userKey} - New history created:`, newHistory);
 
   console.log(`[Handle Init] user: ${userKey} - Generating first question`);
-  const nextQuestion = await generateNextQuestion(newHistory, initialData);
+  const nextQuestion = await generateNextQuestion(newHistory, safeInitialData);
   console.log(`[Handle Init] user: ${userKey} - Generated question:`, nextQuestion);
+
+  // 생성된 질문을 initialData에 저장 (키워드 매칭용)
+  initialData._lastQuestion = nextQuestion;
 
   newHistory.push(`챗봇: ${nextQuestion}`);
   console.log(`[Handle Init] user: ${userKey} - Updated history:`, newHistory);
@@ -50,7 +56,7 @@ async function handleInit(userKey, utterance) {
   await setFirestoreData(userKey, {
     state: 'COLLECTING',
     history: newHistory,
-    extracted_data: initialData,
+    extracted_data: initialData, // 원본 initialData 사용 (깨끗한 상태)
   });
   console.log(`[Handle Init] user: ${userKey} - Data saved to Firestore`);
 
@@ -104,8 +110,13 @@ async function handleCollecting(userKey, utterance, history, extracted_data, cal
 
   try {
     console.log(`[Handle Collecting] user: ${userKey} - Calling generateNextQuestion`);
-    const nextQuestion = await generateNextQuestion(history, updated_extracted_data);
+    // extracted_data의 깊은 복사 생성 (generateNextQuestion에서 수정되지 않도록)
+    const safeExtractedData = JSON.parse(JSON.stringify(updated_extracted_data));
+    const nextQuestion = await generateNextQuestion(history, safeExtractedData);
     console.log(`[Handle Collecting] user: ${userKey} - Generated question:`, nextQuestion);
+
+    // 생성된 질문을 updated_extracted_data에 저장 (키워드 매칭용)
+    updated_extracted_data._lastQuestion = nextQuestion;
 
     history.push(`챗봇: ${nextQuestion}`);
     console.log(`[Handle Collecting] user: ${userKey} - Updated history length: ${history.length}`);
