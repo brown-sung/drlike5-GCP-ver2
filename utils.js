@@ -1,8 +1,8 @@
 // 파일: utils.js
 const IMAGE_URL_HIGH_RISK =
-  'https://github.com/brown-sung/drlike5-GCP/blob/main/asthma_high2.png?raw=true';
+  'https://github.com/brown-sung/drlike5-GCP-ver2/blob/main/asthma_high2.png?raw=true';
 const IMAGE_URL_LOW_RISK =
-  'https://github.com/brown-sung/drlike5-GCP/blob/main/asthma_low2.png?raw=true';
+  'https://github.com/brown-sung/drlike5-GCP-ver2/blob/main/asthma_low2.png?raw=true';
 
 const createResponseFormat = (mainText, questions = []) => {
   // 텍스트에서 JSON 형태 제거 및 정리
