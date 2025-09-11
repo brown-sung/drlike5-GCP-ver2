@@ -319,7 +319,7 @@ async function generateWaitMessage(history) {
     let resultText = await callGeminiWithApiKey(
       SYSTEM_PROMPT_WAIT_MESSAGE,
       context,
-      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
       true,
       3800
     );
@@ -752,7 +752,7 @@ const generateNextQuestion = async (history, extracted_data) => {
     const result = await callGeminiWithApiKey(
       SYSTEM_PROMPT_GENERATE_QUESTION,
       context,
-      'gemini-2.5-flash', // 더 빠른 모델 사용
+      'gemini-2.5-flash-lite', // 더 빠른 모델 사용
       false, // JSON 응답 요청하지 않음
       4000 // 4초로 설정 (flash-lite는 더 빠름)
     );
