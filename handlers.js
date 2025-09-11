@@ -218,9 +218,11 @@ async function handleConfirmAnalysis(userKey, utterance, history, extracted_data
 }
 
 async function handlePostAnalysis(userKey, utterance, history, extracted_data) {
-  // "상세 결과 보기" 요청 처리
-  if (utterance === '상세 결과 보기') {
-    console.log(`[Handle Post Analysis] user: ${userKey} - Requesting detailed result`);
+  // "왜 천식 가능성이 있나요?" 요청 처리
+  if (utterance === '왜 천식 가능성이 있나요?') {
+    console.log(
+      `[Handle Post Analysis] user: ${userKey} - Requesting detailed result for high possibility`
+    );
     console.log(
       `[Handle Post Analysis] user: ${userKey} - extracted_data keys:`,
       Object.keys(extracted_data)
@@ -232,6 +234,82 @@ async function handlePostAnalysis(userKey, utterance, history, extracted_data) {
 
     const detailedResult = formatDetailedResult(extracted_data);
     return createResponseFormat(detailedResult, ['다시 검사하기']);
+  }
+
+  // "왜 천식 가능성이 낮은가요?" 요청 처리
+  if (utterance === '왜 천식 가능성이 낮은가요?') {
+    console.log(
+      `[Handle Post Analysis] user: ${userKey} - Requesting detailed result for low possibility`
+    );
+    console.log(
+      `[Handle Post Analysis] user: ${userKey} - extracted_data keys:`,
+      Object.keys(extracted_data)
+    );
+    const nonNullValues = Object.entries(extracted_data)
+      .filter(([key, value]) => value !== null && value !== undefined && value !== '')
+      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+    console.log(`[Handle Post Analysis] user: ${userKey} - Non-null values:`, nonNullValues);
+
+    const detailedResult = formatDetailedResult(extracted_data);
+    return createResponseFormat(detailedResult, ['다시 검사하기']);
+  }
+
+  // "천식 도움되는 정보" 요청 처리
+  if (utterance === '천식 도움되는 정보' || utterance === '천식에 도움되는 정보') {
+    const helpInfo = `🏥 **천식 관리 도움 정보**
+
+**일상 관리:**
+• 실내 공기질 개선 (공기청정기, 정기적 환기)
+• 알레르기 유발 물질 제거 (먼지, 꽃가루, 애완동물 털)
+• 적절한 습도 유지 (40-60%)
+
+**응급 상황 대처:**
+• 기관지확장제 사용법 숙지
+• 증상 악화 시 즉시 병원 방문
+• 응급상황 연락처 준비
+
+**예방 방법:**
+• 규칙적인 운동 (실내 운동 권장)
+• 금연 및 간접흡연 피하기
+• 감기 예방 (손씻기, 마스크 착용)
+
+**정기 관리:**
+• 소아청소년과 정기 검진
+• 알레르기 검사 및 관리
+• 약물 복용법 준수
+
+⚠️ 개인별 상황에 따라 다를 수 있으니 전문의와 상담하세요.`;
+
+    return createResponseFormat(helpInfo, ['다시 검사하기']);
+  }
+
+  // "병원 진료 예약하기" 요청 처리
+  if (utterance === '병원 진료 예약하기') {
+    const appointmentInfo = `🏥 **병원 진료 예약 안내**
+
+**소아청소년과 전문의 상담 권장:**
+• 정확한 진단을 위한 전문의 상담
+• 개인별 맞춤 치료 계획 수립
+• 정기적인 경과 관찰
+
+**진료 준비사항:**
+• 증상 기록 (언제, 어떤 상황에서 발생)
+• 가족력 정보 정리
+• 기존 복용 약물 목록
+• 알레르기 검사 결과 (있는 경우)
+
+**응급상황 시:**
+• 호흡곤란이 심한 경우 즉시 응급실 방문
+• 기관지확장제 사용 후에도 증상 지속 시 병원 방문
+
+**예약 방법:**
+• 가까운 소아청소년과 또는 호흡기내과
+• 온라인 예약 또는 전화 예약
+• 응급상황 시 119 신고
+
+⚠️ 증상이 심하거나 지속될 경우 즉시 의료진과 상담하세요.`;
+
+    return createResponseFormat(appointmentInfo, ['다시 검사하기']);
   }
 
   // 세션 리셋 키워드 감지 (다시 검사하기, 처음으로, 천식일까요)

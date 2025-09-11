@@ -99,11 +99,22 @@ const createResponseFormat = (mainText, questions = []) => {
   };
 
   if (safeQuestions.length > 0) {
-    response.template.quickReplies = safeQuestions.map((q) => ({
-      label: q,
-      action: 'message',
-      messageText: q,
-    }));
+    response.template.quickReplies = safeQuestions.map((q) => {
+      // "병원 진료 예약하기" 버튼에 webLink 적용
+      if (q === '병원 진료 예약하기') {
+        return {
+          label: q,
+          action: 'webLink',
+          webLinkUrl: 'https://pf.kakao.com/_wEhwxj',
+        };
+      }
+      // 다른 버튼들은 기본 message 액션
+      return {
+        label: q,
+        action: 'message',
+        messageText: q,
+      };
+    });
   }
 
   console.log(
@@ -136,11 +147,22 @@ const createResultCardResponse = (description, buttons, possibility) => {
             thumbnail: {
               imageUrl: imageUrl,
             },
-            buttons: safeButtons.map((btnLabel) => ({
-              action: 'message',
-              label: btnLabel,
-              messageText: btnLabel,
-            })),
+            buttons: safeButtons.map((btnLabel) => {
+              // "병원 진료 예약하기" 버튼에 webLink 적용
+              if (btnLabel === '병원 진료 예약하기') {
+                return {
+                  action: 'webLink',
+                  label: btnLabel,
+                  webLinkUrl: 'https://pf.kakao.com/_wEhwxj',
+                };
+              }
+              // 다른 버튼들은 기본 message 액션
+              return {
+                action: 'message',
+                label: btnLabel,
+                messageText: btnLabel,
+              };
+            }),
           },
         },
       ],
