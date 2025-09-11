@@ -26,11 +26,14 @@ async function handleInit(userKey, utterance) {
   const convertedUtterance = convertInitialsToKorean(utterance);
   console.log(`[Handle Init] user: ${userKey} - Converted utterance: ${convertedUtterance}`);
 
+  // 완전히 새로운 빈 extracted_data 생성 (기존 데이터 완전 초기화)
   const initialData = ALL_SYMPTOM_FIELDS.reduce((acc, field) => ({ ...acc, [field]: null }), {});
+  // _lastQuestion도 초기화
+  initialData._lastQuestion = '';
   console.log(
     `[Handle Init] user: ${userKey} - Initial data created with ${
       Object.keys(initialData).length
-    } fields`
+    } fields (completely reset)`
   );
 
   const newHistory = [`사용자: ${convertedUtterance}`];
@@ -207,7 +210,12 @@ async function handlePostAnalysis(userKey, utterance, history, extracted_data) {
   // 세션 리셋 키워드 감지 (다시 검사하기, 처음으로, 천식일까요)
   if (TERMINATION_PHRASES.some((phrase) => utterance.includes(phrase))) {
     console.log(`[Session Reset] user: ${userKey}, reason: ${utterance}`);
-    await resetUserData(userKey);
+    const resetResult = await resetUserData(userKey);
+    if (!resetResult) {
+      console.error(
+        `[Session Reset] user: ${userKey} - Failed to reset data, but continuing with new session`
+      );
+    }
     // 리셋 후 새로운 세션 시작
     return handleInit(userKey, utterance);
   }

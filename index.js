@@ -101,7 +101,12 @@ app.post('/skill', async (req, res) => {
       console.log(
         `[Session Reset] user: ${userKey}, reason: ${utterance} - Deleting all data and starting fresh`
       );
-      await resetUserData(userKey);
+      const resetResult = await resetUserData(userKey);
+      if (!resetResult) {
+        console.error(
+          `[Session Reset] user: ${userKey} - Failed to reset data, but continuing with new session`
+        );
+      }
       // 리셋 후 새로운 세션 시작
       const response = await handleInit(userKey, utterance);
       return res.status(200).json(response);

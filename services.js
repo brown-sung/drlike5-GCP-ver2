@@ -96,10 +96,32 @@ const deleteFirestoreData = async (userKey) => {
 const resetUserData = async (userKey) => {
   try {
     console.log(`[User Reset] user: ${userKey} - Starting complete data reset`);
+
+    // 삭제 전 기존 데이터 확인
+    const existingData = await getFirestoreData(userKey);
+    if (existingData) {
+      console.log(`[User Reset] user: ${userKey} - Found existing data before deletion:`, {
+        state: existingData.state,
+        extracted_data_keys: Object.keys(existingData.extracted_data || {}),
+        history_length: existingData.history?.length || 0,
+      });
+    } else {
+      console.log(`[User Reset] user: ${userKey} - No existing data found`);
+    }
+
     const deleteResult = await deleteFirestoreData(userKey);
     if (deleteResult) {
       console.log(`[User Reset] user: ${userKey} - All data cleared successfully`);
-      return true;
+
+      // 삭제 후 확인
+      const verifyData = await getFirestoreData(userKey);
+      if (verifyData) {
+        console.error(`[User Reset] user: ${userKey} - WARNING: Data still exists after deletion!`);
+        return false;
+      } else {
+        console.log(`[User Reset] user: ${userKey} - Verification successful: No data remains`);
+        return true;
+      }
     } else {
       console.error(`[User Reset] user: ${userKey} - Failed to delete data`);
       return false;
@@ -900,6 +922,11 @@ const generateNextQuestion = async (history, extracted_data) => {
 function extractSymptomDataFromResponse(userResponse, currentData) {
   const response = userResponse.toLowerCase();
   const updatedData = { ...currentData };
+
+  // _lastQuestion이 없으면 빈 문자열로 초기화
+  if (!updatedData._lastQuestion) {
+    updatedData._lastQuestion = '';
+  }
 
   // 긍정/부정 키워드
   const positiveKeywords = [
