@@ -63,6 +63,15 @@ function formatDetailedResult(extractedData) {
     return '상세 정보를 불러올 수 없습니다.';
   }
 
+  // 디버깅: extracted_data 상태 로깅
+  console.log('[Detailed Result] extracted_data keys:', Object.keys(extractedData));
+  console.log(
+    '[Detailed Result] non-null values:',
+    Object.entries(extractedData)
+      .filter(([key, value]) => value !== null && value !== undefined && value !== '')
+      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+  );
+
   const sections = {
     '주요 증상': ['기침', '쌕쌕거림', '호흡곤란', '가슴 답답', '야간', '가래'],
     '감기 증상': [
@@ -133,7 +142,8 @@ function formatDetailedResult(extractedData) {
     const sectionData = fields
       .map((field) => {
         const value = extractedData[field];
-        if (value === null || value === undefined) return null;
+        // null, undefined, 빈 문자열이 아닌 경우만 표시
+        if (value === null || value === undefined || value === '') return null;
         if (value === 'Y') return `✅ ${field}`;
         if (value === 'N') return `❌ ${field}`;
         return `📝 ${field}: ${value}`;

@@ -36,6 +36,12 @@ async function handleInit(userKey, utterance) {
     } fields (completely reset)`
   );
 
+  // 디버깅: 초기 데이터 상태 확인
+  const nonNullValues = Object.entries(initialData)
+    .filter(([key, value]) => value !== null && value !== undefined && value !== '')
+    .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+  console.log(`[Handle Init] user: ${userKey} - Non-null values in initialData:`, nonNullValues);
+
   // extracted_data의 깊은 복사 생성 (generateNextQuestion에서 수정되지 않도록)
   const safeInitialData = JSON.parse(JSON.stringify(initialData));
 
@@ -214,6 +220,16 @@ async function handleConfirmAnalysis(userKey, utterance, history, extracted_data
 async function handlePostAnalysis(userKey, utterance, history, extracted_data) {
   // "상세 결과 보기" 요청 처리
   if (utterance === '상세 결과 보기') {
+    console.log(`[Handle Post Analysis] user: ${userKey} - Requesting detailed result`);
+    console.log(
+      `[Handle Post Analysis] user: ${userKey} - extracted_data keys:`,
+      Object.keys(extracted_data)
+    );
+    const nonNullValues = Object.entries(extracted_data)
+      .filter(([key, value]) => value !== null && value !== undefined && value !== '')
+      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+    console.log(`[Handle Post Analysis] user: ${userKey} - Non-null values:`, nonNullValues);
+
     const detailedResult = formatDetailedResult(extracted_data);
     return createResponseFormat(detailedResult, ['다시 검사하기']);
   }
