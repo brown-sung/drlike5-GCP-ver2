@@ -216,7 +216,7 @@ function formatDetailedResult(extractedData) {
   });
 
   if (symptomData.length > 0) {
-    result += '🩺 증상 관련\n\n' + symptomData.join('\n') + '\n\n';
+    result += '🩺 증상 관련 \n\n' + symptomData.join(' \n') + ' \n\n';
   }
 
   // 👨‍👩‍👧 가족/과거력 섹션
