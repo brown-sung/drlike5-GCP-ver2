@@ -216,8 +216,7 @@ function formatDetailedResult(extractedData) {
   });
 
   if (symptomData.length > 0) {
-    result += '🩺 증상 관련\n\n';
-    result += symptomData.join('\n') + '\n\n';
+    result += '🩺 증상 관련\n\n' + symptomData.join('\n') + '\n\n';
   }
 
   // 👨‍👩‍👧 가족/과거력 섹션
@@ -264,8 +263,7 @@ function formatDetailedResult(extractedData) {
   });
 
   if (familyData.length > 0) {
-    result += '👨‍👩‍👧 가족/과거력\n';
-    result += familyData.join('\n') + '\n\n';
+    result += '👨‍👩‍👧 가족/과거력\n\n' + familyData.join('\n') + '\n\n';
   }
 
   // 🦠 알레르기 검사결과 섹션
@@ -289,8 +287,7 @@ function formatDetailedResult(extractedData) {
   }
 
   if (allergyData.length > 0) {
-    result += '🦠 알레르기 검사결과\n';
-    result += allergyData.join('\n') + '\n\n';
+    result += '🦠 알레르기 검사결과\n\n' + allergyData.join('\n') + '\n\n';
   }
 
   // 데이터가 없는 경우 안내 메시지 추가
