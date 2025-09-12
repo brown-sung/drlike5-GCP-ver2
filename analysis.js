@@ -64,10 +64,29 @@ function formatResult(judgement, extractedData = null) {
   return { title, description, quickReplies };
 }
 
-// 상세 결과 보기 함수 추가
+// 상세 결과 보기 함수 추가 (basicCard 형식)
 function formatDetailedResult(extractedData) {
   if (!extractedData || typeof extractedData !== 'object') {
-    return '상세 정보를 불러올 수 없습니다.';
+    return {
+      version: '2.0',
+      template: {
+        outputs: [
+          {
+            basicCard: {
+              title: '상세 분석 결과',
+              description: '상세 정보를 불러올 수 없습니다.',
+              buttons: [
+                {
+                  action: 'message',
+                  label: '다시 검사하기',
+                  messageText: '다시 검사하기',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
   }
 
   // 디버깅: extracted_data 상태 로깅
@@ -78,74 +97,6 @@ function formatDetailedResult(extractedData) {
       .filter(([key, value]) => value !== null && value !== undefined && value !== '')
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
   );
-
-  const sections = {
-    '주요 증상': ['기침', '쌕쌕거림', '호흡곤란', '가슴 답답', '야간', '가래'],
-    '감기 증상': [
-      '발열',
-      '콧물',
-      '맑은 콧물',
-      '코막힘',
-      '코 가려움',
-      '결막염',
-      '두통',
-      '인후통',
-      '재채기',
-      '후비루',
-    ],
-    '증상 지속': ['증상 지속', '기관지확장제 사용', '증상 완화 여부'],
-    '가족력 및 병력': [
-      '가족력',
-      '천식 병력',
-      '알레르기 비염 병력',
-      '모세기관지염 병력',
-      '아토피 병력',
-    ],
-    알레르기: ['공중 항원', '공중 항원 상세', '식품 항원', '식품 항원 상세', '총 IgE'],
-    기타: ['운동시 이상', '계절', '기온', '복용중 약', '기존 진단명', '과거 병력'],
-  };
-
-  let result = '📋 상세 분석 결과\n\n';
-
-  // 알레르기 검사 결과가 있으면 별도 섹션으로 표시 (주석처리)
-  /*
-  if (extractedData['알레르기 검사 결과']) {
-    try {
-      const allergyTestData = JSON.parse(extractedData['알레르기 검사 결과']);
-      result += '🔬 알레르기 검사 결과 상세\n\n';
-
-      if (allergyTestData.test_type) {
-        result += `검사 종류: ${allergyTestData.test_type}\n`;
-      }
-
-      if (allergyTestData.total_ige) {
-        result += `총 IgE: ${allergyTestData.total_ige}\n\n`;
-      }
-
-      // 공중 알레르겐 상세 (단순화된 구조)
-      if (allergyTestData.airborne_allergens && allergyTestData.airborne_allergens.length > 0) {
-        result += '🌬️ 공중 알레르겐:\n';
-        allergyTestData.airborne_allergens.forEach((item) => {
-          result += `✅ ${item}\n`;
-        });
-        result += '\n';
-      }
-
-      // 식품 알레르겐 상세 (단순화된 구조)
-      if (allergyTestData.food_allergens && allergyTestData.food_allergens.length > 0) {
-        result += '🍽️ 식품 알레르겐:\n';
-        allergyTestData.food_allergens.forEach((item) => {
-          result += `✅ ${item}\n`;
-        });
-        result += '\n';
-      }
-
-      result += '---\n\n';
-    } catch (e) {
-      console.warn('Failed to parse allergy test data:', e);
-    }
-  }
-  */
 
   // 🩺 증상 관련 섹션
   const symptomData = [];
@@ -215,10 +166,6 @@ function formatDetailedResult(extractedData) {
     }
   });
 
-  if (symptomData.length > 0) {
-    result += '🩺 증상 관련 \n\n' + symptomData.join(' \n') + ' \n\n';
-  }
-
   // 👨‍👩‍👧 가족/과거력 섹션
   const familyData = [];
   const familyFields = [
@@ -262,10 +209,6 @@ function formatDetailedResult(extractedData) {
     }
   });
 
-  if (familyData.length > 0) {
-    result += '👨‍👩‍👧 가족/과거력\n\n' + familyData.join('\n') + '\n\n';
-  }
-
   // 🦠 알레르기 검사결과 섹션
   const allergyData = [];
 
@@ -286,19 +229,49 @@ function formatDetailedResult(extractedData) {
     allergyData.push(`•총 IgE: ${extractedData['총 IgE']}`);
   }
 
+  // description 구성
+  let description = '';
+
+  if (symptomData.length > 0) {
+    description += '🩺 증상 관련\n' + symptomData.join('\n') + '\n\n';
+  }
+
+  if (familyData.length > 0) {
+    description += '👨‍👩‍👧 가족/과거력\n' + familyData.join('\n') + '\n\n';
+  }
+
   if (allergyData.length > 0) {
-    result += '🦠 알레르기 검사결과\n\n' + allergyData.join('\n') + '\n\n';
+    description += '🦠 알레르기 검사결과\n' + allergyData.join('\n') + '\n\n';
   }
 
   // 데이터가 없는 경우 안내 메시지 추가
   if (symptomData.length === 0 && familyData.length === 0 && allergyData.length === 0) {
-    result += '📝 수집된 증상 정보가 없습니다.\n\n';
-    result += '더 정확한 분석을 위해 증상에 대해 자세히 말씀해 주세요.\n\n';
+    description += '📝 수집된 증상 정보가 없습니다.\n\n';
+    description += '더 정확한 분석을 위해 증상에 대해 자세히 말씀해 주세요.\n\n';
   }
 
-  result += '⚠️ 제공하는 결과는 참고용이며, 의학적인 진단을 대신할 수 없습니다.';
+  description += '⚠️ 제공하는 결과는 참고용이며, 의학적인 진단을 대신할 수 없습니다.';
 
-  return result;
+  return {
+    version: '2.0',
+    template: {
+      outputs: [
+        {
+          basicCard: {
+            title: '상세 분석 결과',
+            description: description,
+            buttons: [
+              {
+                action: 'message',
+                label: '다시 검사하기',
+                messageText: '다시 검사하기',
+              },
+            ],
+          },
+        },
+      ],
+    },
+  };
 }
 
 module.exports = { judgeAsthma, formatResult, formatDetailedResult };

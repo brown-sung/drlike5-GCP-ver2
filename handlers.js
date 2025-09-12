@@ -233,7 +233,7 @@ async function handlePostAnalysis(userKey, utterance, history, extracted_data) {
     console.log(`[Handle Post Analysis] user: ${userKey} - Non-null values:`, nonNullValues);
 
     const detailedResult = formatDetailedResult(extracted_data);
-    return createResponseFormat(detailedResult, ['다시 검사하기']);
+    return detailedResult; // basicCard 형식으로 직접 반환
   }
 
   // "왜 천식 가능성이 낮은가요?" 요청 처리
@@ -251,7 +251,7 @@ async function handlePostAnalysis(userKey, utterance, history, extracted_data) {
     console.log(`[Handle Post Analysis] user: ${userKey} - Non-null values:`, nonNullValues);
 
     const detailedResult = formatDetailedResult(extracted_data);
-    return createResponseFormat(detailedResult, ['다시 검사하기']);
+    return detailedResult; // basicCard 형식으로 직접 반환
   }
 
   // "천식 도움되는 정보" 요청 처리
