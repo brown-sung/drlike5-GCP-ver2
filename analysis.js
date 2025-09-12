@@ -260,7 +260,7 @@ function formatDetailedResult(extractedData) {
           basicCard: {
             title: '상세 분석 결과',
             description: description,
-            buttons: [
+            quickReplies: [
               {
                 action: 'message',
                 label: '다시 검사하기',
