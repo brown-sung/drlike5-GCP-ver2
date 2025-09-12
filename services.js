@@ -353,7 +353,7 @@ async function generateWaitMessage(history) {
 
 // 알레르기 검사결과지 전용 대기 메시지 생성
 async function generateAllergyTestWaitMessage() {
-  return '알레르기 검사결과지를 올려주셨네요. 잠시만 기다시리면 살펴보겠습니다.';
+  return '📊 네, 보내주신 알레르기 검사결과 내용을 살펴보고 있어요. 잠시만 기다려주세요.';
 }
 
 // 1단계: 이미지에서 텍스트 추출
