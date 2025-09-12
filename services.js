@@ -534,7 +534,7 @@ const generateNextQuestion = async (history, extracted_data) => {
   // 반복 질문이 있으면 분석 제안으로 전환
   if (hasRepeatedQuestion) {
     console.log(`[Question Generation] Detected repeated question, returning analysis suggestion`);
-    return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
+    return '네, 알겠습니다. 지금까지 말씀해주신 내용을 종합하여 아이의 천식 가능성을 안내드릴까요? 🩺';
   }
 
   // 사용자가 최근에 "아니요", "없어요", "ㄴㄴ" 등으로 답변했는지 확인
@@ -677,7 +677,7 @@ const generateNextQuestion = async (history, extracted_data) => {
   ) {
     console.log(`[Question Generation] All conditions sufficiently covered - suggesting analysis`);
     if (hasNegativeResponse && recentQuestions.length >= 2) {
-      return "혹시 더 말씀하고 싶은 다른 증상이 있으신가요? 없으시다면 '분석해줘'라고 말씀해주세요.";
+      return '네, 알겠습니다. 지금까지 말씀해주신 내용을 종합하여 아이의 천식 가능성을 안내드릴까요? 🩺';
     }
   }
   // 5단계: 기본적으로 핵심 증상이 부족하면 계속 질문
