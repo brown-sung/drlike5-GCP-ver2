@@ -85,6 +85,13 @@ function formatDetailedResult(extractedData) {
             },
           },
         ],
+        quickReplies: [
+          {
+            action: 'message',
+            label: '다시 검사하기',
+            messageText: '다시 검사하기',
+          },
+        ],
       },
     };
   }
@@ -260,7 +267,7 @@ function formatDetailedResult(extractedData) {
           basicCard: {
             title: '상세 분석 결과',
             description: description,
-            quickReplies: [
+            buttons: [
               {
                 action: 'message',
                 label: '다시 검사하기',
@@ -268,6 +275,13 @@ function formatDetailedResult(extractedData) {
               },
             ],
           },
+        },
+      ],
+      quickReplies: [
+        {
+          action: 'message',
+          label: '다시 검사하기',
+          messageText: '다시 검사하기',
         },
       ],
     },
