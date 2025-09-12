@@ -107,7 +107,8 @@ function formatDetailedResult(extractedData) {
 
   let result = '📋 상세 분석 결과\n\n';
 
-  // 알레르기 검사 결과가 있으면 별도 섹션으로 표시
+  // 알레르기 검사 결과가 있으면 별도 섹션으로 표시 (주석처리)
+  /*
   if (extractedData['알레르기 검사 결과']) {
     try {
       const allergyTestData = JSON.parse(extractedData['알레르기 검사 결과']);
@@ -144,24 +145,153 @@ function formatDetailedResult(extractedData) {
       console.warn('Failed to parse allergy test data:', e);
     }
   }
+  */
 
-  Object.entries(sections).forEach(([sectionName, fields]) => {
-    const sectionData = fields
-      .map((field) => {
-        const value = extractedData[field];
-        // null, undefined, 빈 문자열, "null" 문자열이 아닌 경우만 표시
-        if (value === null || value === undefined || value === '' || value === 'null') return null;
-        if (value === 'Y') return `✅ ${field}`;
-        if (value === 'N') return `❌ ${field}`;
-        return `📝 ${field}: ${value}`;
-      })
-      .filter((item) => item !== null);
+  // 🩺 증상 관련 섹션
+  const symptomData = [];
+  const symptomFields = [
+    '기침',
+    '쌕쌕거림',
+    '호흡곤란',
+    '가슴 답답',
+    '야간',
+    '가래',
+    '발열',
+    '콧물',
+    '맑은 콧물',
+    '코막힘',
+    '코 가려움',
+    '결막염',
+    '두통',
+    '인후통',
+    '재채기',
+    '후비루',
+    '증상 지속',
+    '기관지확장제 사용',
+    '증상 완화 여부',
+    '운동시 이상',
+    '계절',
+    '기온',
+  ];
 
-    if (sectionData.length > 0) {
-      result += `🔸 ${sectionName}\n`;
-      result += sectionData.join('\n') + '\n\n';
+  symptomFields.forEach((field) => {
+    const value = extractedData[field];
+    if (value === null || value === undefined || value === '' || value === 'null') return;
+
+    if (value === 'Y') {
+      // 증상이 있는 경우 구체적인 설명 생성
+      if (field === '기침') {
+        const duration = extractedData['증상 지속'] || '지속';
+        symptomData.push(`•기침이 ${duration}`);
+      } else if (field === '쌕쌕거림') {
+        const night = extractedData['야간'] === 'Y' ? '밤에 ' : '';
+        symptomData.push(`•${night}쌕쌕거림과 함께 기침이 심해짐`);
+      } else if (field === '야간') {
+        // 이미 쌕쌕거림에서 처리됨
+      } else if (field === '발열') {
+        symptomData.push(`•열이 있음`);
+      } else if (field === '콧물' || field === '맑은 콧물') {
+        symptomData.push(`•콧물이 있음`);
+      } else if (field === '계절') {
+        const season = extractedData['계절'] || '특정 계절';
+        symptomData.push(`•계절이 바뀔 때(${season}) 증상 심해짐`);
+      } else {
+        symptomData.push(`•${field} 증상 있음`);
+      }
+    } else if (value === 'N') {
+      // 증상이 없는 경우
+      if (field === '발열') {
+        symptomData.push(`•열이나 콧물은 없음, 주로 마른 기침`);
+      } else if (field === '콧물' || field === '맑은 콧물') {
+        // 이미 발열에서 처리됨
+      }
+    } else if (typeof value === 'string' && value !== 'Y' && value !== 'N') {
+      // 구체적인 값이 있는 경우
+      if (field === '증상 지속') {
+        symptomData.push(`•기침이 ${value}`);
+      } else if (field === '계절') {
+        symptomData.push(`•계절이 바뀔 때(${value}) 증상 심해짐`);
+      }
     }
   });
+
+  if (symptomData.length > 0) {
+    result += '🩺 증상 관련\n';
+    result += symptomData.join('\n') + '\n\n';
+  }
+
+  // 👨‍👩‍👧 가족/과거력 섹션
+  const familyData = [];
+  const familyFields = [
+    '가족력',
+    '천식 병력',
+    '알레르기 비염 병력',
+    '모세기관지염 병력',
+    '아토피 병력',
+    '기존 진단명',
+    '과거 병력',
+  ];
+
+  familyFields.forEach((field) => {
+    const value = extractedData[field];
+    if (value === null || value === undefined || value === '' || value === 'null') return;
+
+    if (value === 'Y') {
+      if (field === '가족력') {
+        familyData.push(`•가족 중 천식 진단 받은 분 있음`);
+      } else if (field === '천식 병력') {
+        familyData.push(`•아이가 천식 진단 받음`);
+      } else if (field === '아토피 병력') {
+        familyData.push(`•아이가 아토피 진단 받음`);
+      } else if (field === '모세기관지염 병력') {
+        familyData.push(`•모세기관지염 진단 받은 적 있음`);
+      } else if (field === '알레르기 비염 병력') {
+        familyData.push(`•알레르기 비염 진단 받은 적 있음`);
+      }
+    } else if (value === 'N') {
+      if (field === '아토피 병력') {
+        familyData.push(`•아이는 아토피 진단 없음`);
+      } else if (field === '천식 병력') {
+        familyData.push(`•아이는 천식 진단 없음`);
+      }
+    } else if (typeof value === 'string' && value !== 'Y' && value !== 'N') {
+      if (field === '기존 진단명') {
+        familyData.push(`•${value} 진단 받음`);
+      } else if (field === '과거 병력') {
+        familyData.push(`•${value} 경험 있음`);
+      }
+    }
+  });
+
+  if (familyData.length > 0) {
+    result += '👨‍👩‍👧 가족/과거력\n';
+    result += familyData.join('\n') + '\n\n';
+  }
+
+  // 🦠 알레르기 검사결과 섹션
+  const allergyData = [];
+
+  // 공중 항원 처리
+  if (extractedData['공중 항원'] === 'Y' || extractedData['공중 항원 상세']) {
+    const airborneDetail = extractedData['공중 항원 상세'] || '집먼지, 곰팡이, 꽃가루';
+    allergyData.push(`•공기 (${airborneDetail}) 양성`);
+  }
+
+  // 식품 항원 처리
+  if (extractedData['식품 항원'] === 'Y' || extractedData['식품 항원 상세']) {
+    const foodDetail = extractedData['식품 항원 상세'] || '우유, 계란, 땅콩';
+    allergyData.push(`•음식 (${foodDetail}) 양성`);
+  }
+
+  // 총 IgE 처리
+  if (extractedData['총 IgE']) {
+    allergyData.push(`•총 IgE: ${extractedData['총 IgE']}`);
+  }
+
+  if (allergyData.length > 0) {
+    result += '🦠 알레르기 검사결과\n';
+    result += allergyData.join('\n') + '\n\n';
+  }
 
   result += '⚠️ 제공하는 결과는 참고용이며, 의학적인 진단을 대신할 수 없습니다.';
 
