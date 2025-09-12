@@ -216,7 +216,7 @@ function formatDetailedResult(extractedData) {
   });
 
   if (symptomData.length > 0) {
-    result += '🩺 증상 관련\n';
+    result += '\n\n🩺 증상 관련\n';
     result += symptomData.join('\n') + '\n\n\n';
   }
 
@@ -264,7 +264,7 @@ function formatDetailedResult(extractedData) {
   });
 
   if (familyData.length > 0) {
-    result += '👨‍👩‍👧 가족/과거력\n';
+    result += '\n\n👨‍👩‍👧 가족/과거력\n';
     result += familyData.join('\n') + '\n\n\n';
   }
 
@@ -289,13 +289,13 @@ function formatDetailedResult(extractedData) {
   }
 
   if (allergyData.length > 0) {
-    result += '🦠 알레르기 검사결과\n';
+    result += '\n\n🦠 알레르기 검사결과\n';
     result += allergyData.join('\n') + '\n\n\n';
   }
 
   // 데이터가 없는 경우 안내 메시지 추가
   if (symptomData.length === 0 && familyData.length === 0 && allergyData.length === 0) {
-    result += '📝 수집된 증상 정보가 없습니다.\n';
+    result += '\n\n📝 수집된 증상 정보가 없습니다.\n';
     result += '더 정확한 분석을 위해 증상에 대해 자세히 말씀해 주세요.\n\n';
   }
 
