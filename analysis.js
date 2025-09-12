@@ -105,7 +105,7 @@ function formatDetailedResult(extractedData) {
     기타: ['운동시 이상', '계절', '기온', '복용중 약', '기존 진단명', '과거 병력'],
   };
 
-  let result = '📋 상세 분석 결과\n\n';
+  let result = '📋 상세 분석 결과\n\n\n';
 
   // 알레르기 검사 결과가 있으면 별도 섹션으로 표시 (주석처리)
   /*
@@ -217,7 +217,7 @@ function formatDetailedResult(extractedData) {
 
   if (symptomData.length > 0) {
     result += '🩺 증상 관련\n';
-    result += symptomData.join('\n') + '\n\n';
+    result += symptomData.join('\n') + '\n\n\n';
   }
 
   // 👨‍👩‍👧 가족/과거력 섹션
@@ -265,7 +265,7 @@ function formatDetailedResult(extractedData) {
 
   if (familyData.length > 0) {
     result += '👨‍👩‍👧 가족/과거력\n';
-    result += familyData.join('\n') + '\n\n';
+    result += familyData.join('\n') + '\n\n\n';
   }
 
   // 🦠 알레르기 검사결과 섹션
@@ -290,7 +290,7 @@ function formatDetailedResult(extractedData) {
 
   if (allergyData.length > 0) {
     result += '🦠 알레르기 검사결과\n';
-    result += allergyData.join('\n') + '\n\n';
+    result += allergyData.join('\n') + '\n\n\n';
   }
 
   // 데이터가 없는 경우 안내 메시지 추가
