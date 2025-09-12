@@ -293,6 +293,12 @@ function formatDetailedResult(extractedData) {
     result += allergyData.join('\n') + '\n\n';
   }
 
+  // 데이터가 없는 경우 안내 메시지 추가
+  if (symptomData.length === 0 && familyData.length === 0 && allergyData.length === 0) {
+    result += '📝 수집된 증상 정보가 없습니다.\n';
+    result += '더 정확한 분석을 위해 증상에 대해 자세히 말씀해 주세요.\n\n';
+  }
+
   result += '⚠️ 제공하는 결과는 참고용이며, 의학적인 진단을 대신할 수 없습니다.';
 
   return result;
