@@ -75,13 +75,6 @@ function formatDetailedResult(extractedData) {
             basicCard: {
               title: '상세 분석 결과',
               description: '상세 정보를 불러올 수 없습니다.',
-              buttons: [
-                {
-                  action: 'message',
-                  label: '다시 검사하기',
-                  messageText: '다시 검사하기',
-                },
-              ],
             },
           },
         ],
@@ -267,13 +260,6 @@ function formatDetailedResult(extractedData) {
           basicCard: {
             title: '상세 분석 결과',
             description: description,
-            buttons: [
-              {
-                action: 'message',
-                label: '다시 검사하기',
-                messageText: '다시 검사하기',
-              },
-            ],
           },
         },
       ],
